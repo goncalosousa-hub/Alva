@@ -36,6 +36,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Tag the version (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag already exists"
+          else
+            git tag "$tag" && git push origin "$tag"
+          fi
       # On main, a new version in package.json becomes a GitHub release (tag v<version>) with the
       # installer and latest.yml, which the installed apps read to update themselves. A version
       # that is already released is left alone.
