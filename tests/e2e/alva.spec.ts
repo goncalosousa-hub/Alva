@@ -161,3 +161,54 @@ test("switches between the includes of a class", async ({ page }) => {
   await expect(page.locator(".view-lines")).toContainText("CLASS zcl_flight_service DEFINITION");
   await expect(openTabs(page).getByRole("tab")).toHaveCount(2);
 });
+
+test("creates a class, runs a console class and the ABAP Unit tests", async ({ page }) => {
+  await startDemo(page);
+
+  // New object (Alt+N in the browser, Ctrl+N in the desktop app).
+  await page.keyboard.press("Alt+N");
+  const dialog = page.getByRole("dialog", { name: "Novo objeto ABAP" });
+  await dialog.getByLabel("Nome").fill("ZCL_E2E_NEW");
+  await dialog.getByLabel("Descrição").fill("Criada no teste");
+  await dialog.getByLabel("Pacote").fill("$ZALVA_LOCAL");
+  await dialog.getByRole("button", { name: "Criar" }).click();
+  await expect(activeTab(page)).toContainText("ZCL_E2E_NEW");
+  await expect(page.locator(".statusbar")).toContainText("Inativo");
+  await expect(page.locator(".sidebar")).toContainText("ZCL_E2E_NEW");
+  await page.keyboard.press("Control+F3");
+  await expect(page.locator(".statusbar")).toContainText("Ativo");
+
+  // F8 on a console class shows its output.
+  await openObject(page, "ZCL_ALVA_HELLO");
+  await page.keyboard.press("F8");
+  await expect(page.getByTestId("console")).toContainText("Olá do Alva!");
+
+  // F8 on a program opens SAP GUI for HTML (the demo system says it has none).
+  await openObject(page, "ZR_FLIGHT_REPORT");
+  await page.keyboard.press("F8");
+  await expect(page.locator(".toast", { hasText: "não tem SAP GUI" })).toBeVisible();
+
+  // ABAP Unit.
+  await openObject(page, "ZCL_FLIGHT_SERVICE");
+  await page.keyboard.press("Control+Shift+F10");
+  const results = page.getByTestId("unit-results");
+  await expect(results).toContainText("2 de 2 teste(s) passaram");
+  await results.getByRole("button", { name: /FULL_FLIGHTS_ARE_SKIPPED/ }).click();
+  await expect(activeTab(page)).toContainText("testes");
+});
+
+test("a new object in a transportable package asks for the transport in the dialog", async ({ page }) => {
+  await startDemo(page);
+  await page.keyboard.press("Alt+N");
+  const dialog = page.getByRole("dialog", { name: "Novo objeto ABAP" });
+  await dialog.getByRole("radio", { name: "Programa" }).click();
+  await dialog.getByLabel("Nome").fill("ZR_E2E_REPORT");
+  await dialog.getByLabel("Descrição").fill("Relatório");
+  await dialog.getByLabel("Pacote").fill("ZALVA_DEMO");
+  await dialog.getByRole("button", { name: "Criar" }).click();
+  await expect(dialog).toContainText("regista alterações");
+  await dialog.getByText("DEVK900131").click();
+  await dialog.getByRole("button", { name: "Criar" }).click();
+  await expect(activeTab(page)).toContainText("ZR_E2E_REPORT");
+  await expect(page.locator(".view-lines")).toContainText("REPORT zr_e2e_report.");
+});

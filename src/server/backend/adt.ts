@@ -1,10 +1,23 @@
-import { ADTClient, createSSLConfig, isAdtError, isAdtException, isClassStructure, isHttpError, isLoginError, session_types } from "abap-adt-api";
+import {
+  ADTClient,
+  createSSLConfig,
+  isAdtError,
+  isAdtException,
+  isClassStructure,
+  isHttpError,
+  isLoginError,
+  objectPath,
+  session_types,
+  type UnitTestAlert as AdtUnitTestAlert,
+} from "abap-adt-api";
 import {
   CLASS_INCLUDE_LABELS,
   type ActivationOutcome,
   type ClassInclude,
   type CompletionItem,
   type ConnectionInput,
+  type CreateOutcome,
+  type CreateRequest,
   type DefinitionTarget,
   type Diagnostic,
   type ObjectRef,
@@ -13,6 +26,8 @@ import {
   type SaveRequest,
   type SessionInfo,
   type TreeNode,
+  type UnitTestAlert,
+  type UnitTestClassResult,
 } from "../../shared/types.js";
 import { BackendError, type AbapBackend } from "./types.js";
 import { etagOf, languageOf, searchPattern, severityOf, splitSourceUri, stripFragment } from "./util.js";
@@ -48,6 +63,24 @@ export function toBackendError(e: unknown): Error {
 
 /** SCC_COMPLETION role of an interface (sccmp_role_intftype): after -> it is completed as "intf~". */
 const INTERFACE_ROLE = 58;
+
+/** ".../includes/testclasses#start=34,4" → the source URI and the line. */
+function locate(uri: string | undefined): { uri?: string; line?: number } {
+  if (!uri) return {};
+  const m = uri.match(/#start=(\d+)/);
+  return { uri: splitSourceUri(uri).sourceUri ?? stripFragment(uri), line: m ? Number(m[1]) : undefined };
+}
+
+function toAlert(a: AdtUnitTestAlert): UnitTestAlert {
+  // The innermost stack entry with a position is where the assertion failed.
+  const at = a.stack.map((e) => locate(e["adtcore:uri"])).find((l) => l.line !== undefined);
+  return {
+    kind: a.kind === "failedAssertion" || a.kind === "exception" ? a.kind : "warning",
+    title: a.title,
+    details: a.details,
+    ...at,
+  };
+}
 
 export class AdtBackend implements AbapBackend {
   private readonly lockMutex = new Mutex();
@@ -268,6 +301,56 @@ export class AdtBackend implements AbapBackend {
         .map((r) => r.object)
         .filter((o): o is NonNullable<typeof o> => !!o && o.user.toUpperCase() === this.info.user)
         .map((o) => ({ name: o["adtcore:name"], type: o["adtcore:type"], uri: o["adtcore:uri"], description: o["adtcore:description"] }));
+    });
+  }
+
+  create(request: CreateRequest): Promise<CreateOutcome> {
+    return this.call(async () => {
+      const name = request.name.trim().toUpperCase();
+      const packageName = request.packageName.trim().toUpperCase();
+      const uri = objectPath(request.type, name.toLowerCase(), packageName);
+      let transport = request.transport;
+      if (!transport) {
+        const info = await this.writer.transportInfo(uri, packageName, "I");
+        if (info.LOCKS?.HEADER?.TRKORR) transport = info.LOCKS.HEADER.TRKORR;
+        else if (info.DLVUNIT !== "LOCAL") {
+          return {
+            status: "needsTransport",
+            packageName,
+            transports: (info.TRANSPORTS ?? []).map((t) => ({ number: t.TRKORR, text: t.AS4TEXT, owner: t.AS4USER })),
+          } satisfies CreateOutcome;
+        }
+      }
+      await this.writer.createObject({
+        objtype: request.type,
+        name,
+        parentName: packageName,
+        parentPath: `/sap/bc/adt/packages/${encodeURIComponent(packageName.toLowerCase())}`,
+        description: request.description.trim(),
+        transport,
+      });
+      return { status: "created", uri, transport } satisfies CreateOutcome;
+    });
+  }
+
+  runClass(className: string): Promise<string> {
+    return this.call(() => this.reader.runClass(className));
+  }
+
+  unitTests(objectUri: string): Promise<UnitTestClassResult[]> {
+    return this.call(async () => {
+      const classes = await this.reader.unitTestRun(objectUri);
+      return classes.map((c) => ({
+        name: c["adtcore:name"],
+        ...locate(c.navigationUri ?? c["adtcore:uri"]),
+        alerts: c.alerts.map(toAlert),
+        methods: c.testmethods.map((m) => ({
+          name: m["adtcore:name"],
+          ...locate(m.navigationUri ?? m["adtcore:uri"]),
+          time: m.executionTime,
+          alerts: m.alerts.map(toAlert),
+        })),
+      }));
     });
   }
 

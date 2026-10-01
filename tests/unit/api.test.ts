@@ -73,7 +73,7 @@ describe("session", () => {
 describe("repository", () => {
   it("searches with an implicit wildcard, case-insensitive", async () => {
     const res = await agent.get("/api/search").set(H).query({ q: "zcl_" }).expect(200);
-    expect(res.body.map((r: { name: string }) => r.name)).toEqual(["ZCL_FLIGHT_SERVICE", "ZCL_STRING_UTILS"]);
+    expect(res.body.map((r: { name: string }) => r.name)).toEqual(["ZCL_ALVA_HELLO", "ZCL_FLIGHT_SERVICE", "ZCL_STRING_UTILS"]);
   });
 
   it("filters the search by type", async () => {
@@ -126,7 +126,14 @@ describe("editing", () => {
   });
 
   it("the demo sources pass the syntax check", async () => {
-    for (const uri of [PROGRAM, LOCAL_PROGRAM, CLASS, "/sap/bc/adt/oo/interfaces/zif_flight_repository", "/sap/bc/adt/oo/classes/zcl_string_utils"]) {
+    for (const uri of [
+      PROGRAM,
+      LOCAL_PROGRAM,
+      CLASS,
+      "/sap/bc/adt/oo/interfaces/zif_flight_repository",
+      "/sap/bc/adt/oo/classes/zcl_string_utils",
+      "/sap/bc/adt/oo/classes/zcl_alva_hello",
+    ]) {
       const obj = await open(uri);
       const res = await agent.post("/api/object/check").set(H).send({ objectUri: uri, sourceUri: obj.sourceUri, source: obj.source }).expect(200);
       expect(res.body, uri).toEqual([]);
@@ -249,5 +256,53 @@ describe("editing", () => {
 
   it("rejects object URIs outside ADT", async () => {
     await agent.get("/api/object").set(H).query({ uri: "/etc/passwd" }).expect(400);
+  });
+});
+
+describe("create, run and test", () => {
+  it("creates a class in a local package, inactive until activated", async () => {
+    const res = await agent
+      .post("/api/objects")
+      .set(H)
+      .send({ type: "CLAS/OC", name: "zcl_new_one", description: "Nova", packageName: "$zalva_local" })
+      .expect(200);
+    expect(res.body).toEqual({ status: "created", uri: "/sap/bc/adt/oo/classes/zcl_new_one" });
+    const obj = await open(res.body.uri);
+    expect(obj.version).toBe("inactive");
+    expect(obj.source).toContain("CLASS zcl_new_one DEFINITION");
+    const act = await agent.post("/api/object/activate").set(H).send({ name: "ZCL_NEW_ONE", objectUri: res.body.uri }).expect(200);
+    expect(act.body.success).toBe(true);
+    const pkg = await agent.get("/api/packages/$ZALVA_LOCAL").set(H).expect(200);
+    expect(pkg.body.map((n: { name: string }) => n.name)).toContain("ZCL_NEW_ONE");
+  });
+
+  it("asks for a transport when creating in a transportable package", async () => {
+    const body = { type: "PROG/P", name: "ZR_NEW", description: "Novo", packageName: "ZALVA_DEMO" };
+    const first = await agent.post("/api/objects").set(H).send(body).expect(200);
+    expect(first.body.status).toBe("needsTransport");
+    const second = await agent.post("/api/objects").set(H).send({ ...body, transport: "DEVK900123" }).expect(200);
+    expect(second.body).toMatchObject({ status: "created", transport: "DEVK900123" });
+    await agent.post("/api/objects").set(H).send({ ...body, transport: "DEVK900123" }).expect(409);
+  });
+
+  it("rejects invalid names", async () => {
+    const res = await agent.post("/api/objects").set(H).send({ type: "PROG/P", name: "ABC", description: "x", packageName: "$ZALVA_LOCAL" }).expect(400);
+    expect(res.body.error).toMatch(/Z ou Y/);
+  });
+
+  it("runs a console class", async () => {
+    const res = await agent.post("/api/object/run").set(H).send({ name: "ZCL_ALVA_HELLO" }).expect(200);
+    expect(res.body.output).toContain("Olá do Alva!");
+    await agent.post("/api/object/run").set(H).send({ name: "ZCL_STRING_UTILS" }).expect(400);
+  });
+
+  it("runs the unit tests of a class", async () => {
+    const res = await agent.post("/api/object/unittests").set(H).send({ objectUri: CLASS }).expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("LTC_FLIGHT_SERVICE");
+    expect(res.body[0].methods.map((m: { name: string }) => m.name)).toEqual(["OCCUPATION_IN_PERCENT", "FULL_FLIGHTS_ARE_SKIPPED"]);
+    expect(res.body[0].methods.every((m: { alerts: unknown[] }) => m.alerts.length === 0)).toBe(true);
+    expect(res.body[0].methods[0]).toMatchObject({ uri: `${CLASS}/includes/testclasses` });
+    expect(res.body[0].methods[0].line).toBeGreaterThan(1);
   });
 });

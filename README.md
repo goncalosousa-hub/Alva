@@ -26,6 +26,9 @@ Janela (Electron) ou browser   ──►  servidor local Node (127.0.0.1)  ─�
 | **Pretty Printer** | `Shift+F1` (definições do sistema) |
 | **Classes** | alternar entre classe global, tipos locais, macros e classes de teste |
 | **Outline** | estrutura viva (classes, métodos, atributos, FORMs, eventos), segue o cursor |
+| **Criar objetos** | classes, programas e interfaces (`Ctrl+N` na app de desktop, `Alt+N` no browser, ou o botão em cada pacote), com escolha da ordem de transporte |
+| **Executar** | `F8`: um programa abre no SAP GUI para HTML; uma classe com `IF_OO_ADT_CLASSRUN` mostra a saída na consola. Qualquer transação pelo comando *Abrir transação no SAP GUI* |
+| **ABAP Unit** | `Ctrl+Shift+F10` corre os testes do objeto; resultados no painel *Testes*, com clique para o teste ou a falha |
 | **Objetos inativos** | lista e ativação em massa (`Ctrl+Shift+F3`) |
 | **Paleta de comandos** | `Ctrl+Shift+P`, todos os atalhos em `Ctrl+K` |
 | **Sistema demo** | experimenta tudo sem SAP: um sistema em memória com classes, interface, programas, testes ABAP Unit e transportes |
@@ -112,9 +115,9 @@ npx electron-builder --linux dir && ALVA_EXECUTABLE=release/linux-unpacked/alva 
 
 ## Próximos passos
 
-- Executar testes ABAP Unit e mostrar resultados/cobertura
+- Cobertura de código nos testes ABAP Unit
 - ATC (verificações de qualidade) integradas nos problemas
-- Criar objetos (classe, programa, interface, CDS) e pacotes
+- Criar mais tipos de objeto (CDS, módulos de função, pacotes)
 - Vista de transportes (as minhas ordens, libertar, objetos)
 - Onde é usado (*where-used*) e *rename* refactoring
 - Documentação ABAP ao passar o rato (*hover*)

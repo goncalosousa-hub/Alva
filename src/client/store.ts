@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { OutlineItem } from "../shared/abaplint";
-import type { ClassInclude, Diagnostic, ObjectRef, SessionInfo, TransportOption } from "../shared/types";
+import type { ClassInclude, Diagnostic, ObjectRef, SessionInfo, TransportOption, UnitTestClassResult } from "../shared/types";
 import { prefs, type Settings } from "./prefs";
 
 export interface Tab {
@@ -17,7 +17,7 @@ export interface Tab {
   /** Monaco alternative version id at the last load/save, to tell whether the tab is dirty. */
   savedVersionId: number;
   dirty: boolean;
-  busy?: "saving" | "activating" | "checking" | "formatting";
+  busy?: "saving" | "activating" | "checking" | "formatting" | "running" | "testing";
   transport?: string;
   localDiagnostics: Diagnostic[];
   sapDiagnostics: Diagnostic[];
@@ -29,6 +29,8 @@ export type Overlay =
   | { kind: "commands" }
   | { kind: "settings" }
   | { kind: "shortcuts" }
+  | { kind: "newObject"; packageName?: string }
+  | { kind: "transaction" }
   | { kind: "transport"; tabKey: string; transports: TransportOption[]; packageName?: string; then: "save" | "activate" }
   | { kind: "confirm"; title: string; message: string; confirmLabel: string; danger?: boolean; onConfirm: () => void };
 
@@ -47,6 +49,8 @@ export interface Toast {
 
 export type SidebarView = "explorer" | "inactive";
 
+export type PanelTab = "problems" | "tests" | "console" | "output";
+
 interface State {
   session: SessionInfo | null;
   tabs: Tab[];
@@ -54,7 +58,11 @@ interface State {
   sidebar: SidebarView | null;
   outlineVisible: boolean;
   panelVisible: boolean;
-  panelTab: "problems" | "output";
+  panelTab: PanelTab;
+  /** Last ABAP Unit run. */
+  unitResults: { objectName: string; at: Date; classes: UnitTestClassResult[] } | null;
+  /** Output of console classes (IF_OO_ADT_CLASSRUN), newest last. */
+  consoleRuns: { id: number; className: string; at: Date; output: string }[];
   overlay: Overlay | null;
   log: LogEntry[];
   toasts: Toast[];
@@ -72,6 +80,8 @@ export const useStore = create<State>(() => ({
   outlineVisible: true,
   panelVisible: false,
   panelTab: "problems",
+  unitResults: null,
+  consoleRuns: [],
   overlay: null,
   log: [],
   toasts: [],

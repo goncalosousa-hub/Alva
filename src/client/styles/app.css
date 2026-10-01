@@ -1492,3 +1492,122 @@ button.status-item:hover {
   font-weight: 400;
   color: var(--text-faint);
 }
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  align-self: flex-start;
+}
+
+.segmented button {
+  padding: 5px 14px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.segmented button.active {
+  background: var(--accent-strong);
+  color: #fff;
+}
+
+/* ABAP Unit results and console */
+
+.tests ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tests-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 6px;
+  font-weight: 600;
+}
+
+.tests-summary.passed svg,
+.test-row .pass {
+  color: var(--success);
+}
+
+.tests-summary.failed svg,
+.test-row .fail {
+  color: var(--error);
+}
+
+.tests-summary time,
+.console time {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.test-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 24px;
+  padding: 0 16px;
+  text-align: left;
+}
+
+.test-row.method {
+  padding-left: 34px;
+}
+
+.test-row:hover,
+.test-alert:hover {
+  background: var(--bg-hover);
+}
+
+.test-time {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.test-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding-top: 2px;
+  padding-bottom: 4px;
+  text-align: left;
+}
+
+.test-alert-title {
+  color: var(--error);
+}
+
+.test-alert.kind-warning .test-alert-title {
+  color: var(--warning);
+}
+
+.test-alert-detail {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.console section {
+  padding: 4px 16px 8px;
+}
+
+.console header {
+  font-weight: 600;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.console pre {
+  margin: 4px 0 0;
+  font-family: "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}

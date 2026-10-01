@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { RELEASES, type AbapRelease } from "../../shared/releases";
 import { COMMANDS } from "../commands";
-import { activate, relintAll, save } from "../ide";
+import type { CreatableType } from "../../shared/types";
+import { activate, createObject, openTransaction, relintAll, save } from "../ide";
 import type { ThemeChoice } from "../prefs";
 import { getState, setState, updateSettings, useStore, type Overlay } from "../store";
 import { CommandPalette } from "./CommandPalette";
@@ -168,7 +169,7 @@ function ShortcutsDialog() {
     ["Ctrl+F / Ctrl+H", "Procurar / substituir"],
     ["Ctrl+D", "Selecionar a próxima ocorrência"],
     ["Alt+↑ / Alt+↓", "Mover linhas"],
-    ["F8 / Shift+F8", "Problema seguinte / anterior"],
+    ["Alt+F8", "Problema seguinte"],
   ];
   return (
     <Modal title="Atalhos de teclado" onClose={close} wide>
@@ -193,6 +194,138 @@ function ShortcutsDialog() {
           Fechar
         </button>
       </div>
+    </Modal>
+  );
+}
+
+const NEW_TYPES: { type: CreatableType; label: string; prefix: string; max: number }[] = [
+  { type: "CLAS/OC", label: "Classe", prefix: "ZCL_", max: 30 },
+  { type: "PROG/P", label: "Programa", prefix: "Z", max: 40 },
+  { type: "INTF/OI", label: "Interface", prefix: "ZIF_", max: 30 },
+];
+
+function NewObjectDialog({ overlay }: { overlay: Extract<Overlay, { kind: "newObject" }> }) {
+  const [type, setType] = useState<CreatableType>("CLAS/OC");
+  const [name, setName] = useState("ZCL_");
+  const [description, setDescription] = useState("");
+  const [packageName, setPackageName] = useState(overlay.packageName ?? "$TMP");
+  const [transports, setTransports] = useState<{ number: string; text: string; owner: string }[] | null>(null);
+  const [transport, setTransport] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const close = () => setState({ overlay: null });
+  const spec = NEW_TYPES.find((t) => t.type === type)!;
+
+  function changeType(next: CreatableType) {
+    const old = NEW_TYPES.find((t) => t.type === type)!;
+    const nextSpec = NEW_TYPES.find((t) => t.type === next)!;
+    if (!name || name === old.prefix) setName(nextSpec.prefix);
+    setType(next);
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const result = await createObject({ type, name: name.trim(), description: description.trim(), packageName: packageName.trim(), transport: transport.trim() || undefined });
+    setBusy(false);
+    if (result.status === "created") close();
+    else if (result.status === "needsTransport") {
+      setTransports(result.transports);
+      setTransport(result.transports[0]?.number ?? "");
+    } else setError(result.error);
+  }
+
+  return (
+    <Modal title="Novo objeto ABAP" onClose={close}>
+      <form onSubmit={submit}>
+        <div className="segmented" role="radiogroup" aria-label="Tipo">
+          {NEW_TYPES.map((t) => (
+            <button key={t.type} type="button" role="radio" aria-checked={type === t.type} className={type === t.type ? "active" : ""} onClick={() => changeType(t.type)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <label className="field">
+          Nome
+          <input className="mono" autoFocus required maxLength={spec.max} value={name} onChange={(e) => setName(e.target.value.toUpperCase())} spellCheck={false} />
+        </label>
+        <label className="field">
+          Descrição
+          <input required maxLength={60} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
+        <label className="field">
+          Pacote
+          <input className="mono" required value={packageName} onChange={(e) => setPackageName(e.target.value.toUpperCase())} spellCheck={false} />
+        </label>
+        {transports && (
+          <>
+            <p className="muted">O pacote {packageName.toUpperCase()} regista alterações: escolhe a ordem de transporte.</p>
+            {transports.length > 0 && (
+              <ul className="choice-list">
+                {transports.map((t) => (
+                  <li key={t.number}>
+                    <label className={transport === t.number ? "checked" : ""}>
+                      <input type="radio" name="transport" checked={transport === t.number} onChange={() => setTransport(t.number)} />
+                      <span className="mono">{t.number}</span>
+                      <span className="grow">{t.text}</span>
+                      <span className="muted">{t.owner}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="field">
+              Ordem de transporte
+              <input className="mono" placeholder="DEVK900123" value={transport} onChange={(e) => setTransport(e.target.value.toUpperCase())} />
+            </label>
+          </>
+        )}
+        {error && (
+          <div className="form-error" role="alert">
+            {error}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={close}>
+            Cancelar
+          </button>
+          <button type="submit" className="primary" disabled={busy || (!!transports && !transport.trim())}>
+            {busy ? "A criar…" : "Criar"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function TransactionDialog() {
+  const [tcode, setTcode] = useState("");
+  const close = () => setState({ overlay: null });
+  return (
+    <Modal title="Abrir transação no SAP GUI" onClose={close}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!tcode.trim()) return;
+          close();
+          openTransaction(tcode.trim().toUpperCase());
+        }}
+      >
+        <label className="field">
+          Transação
+          <input className="mono" autoFocus placeholder="SE16N, SM30, ST22…" value={tcode} onChange={(e) => setTcode(e.target.value)} spellCheck={false} />
+        </label>
+        <p className="muted">Abre no SAP GUI para HTML, no browser. Da primeira vez o SAP pede login.</p>
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={close}>
+            Cancelar
+          </button>
+          <button type="submit" className="primary" disabled={!tcode.trim()}>
+            Abrir
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }
@@ -226,6 +359,8 @@ export function Overlays() {
       {overlay.kind === "confirm" && <ConfirmDialog overlay={overlay} />}
       {overlay.kind === "settings" && <SettingsDialog />}
       {overlay.kind === "shortcuts" && <ShortcutsDialog />}
+      {overlay.kind === "newObject" && <NewObjectDialog overlay={overlay} />}
+      {overlay.kind === "transaction" && <TransactionDialog />}
     </div>
   );
 }

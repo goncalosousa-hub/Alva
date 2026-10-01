@@ -2,7 +2,7 @@
  * The IDE's behaviour: open/save/activate/check objects, keep Monaco models, markers and the
  * local linter in sync with the store, and plug ABAP intelligence into Monaco.
  */
-import type { CompletionItem, Diagnostic, ObjectRef, OpenedObject, Severity } from "../shared/types";
+import type { CompletionItem, CreateRequest, Diagnostic, ObjectRef, OpenedObject, Severity } from "../shared/types";
 import { api, ApiError } from "./api";
 import type { LintRequest, LintResponse } from "./lint.worker";
 import { getModel, modelUri, monaco } from "./monaco";
@@ -504,6 +504,101 @@ export async function format(key: string) {
   } catch (e) {
     updateTab(key, { busy: undefined });
     toast("error", `Pretty printer falhou: ${errorText(e)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Run, test, create
+
+/** Saves and activates the object of a tab when needed; true when the active version is current. */
+async function ensureActive(key: string): Promise<boolean> {
+  const tab = () => getState().tabs.find((t) => t.key === key);
+  const siblingsChanged = () => getState().tabs.some((t) => t.ref.uri === tab()?.ref.uri && (t.dirty || t.version === "inactive"));
+  if (!tab()) return false;
+  if (siblingsChanged()) await activate(key);
+  return !!tab() && !siblingsChanged();
+}
+
+/** Opens a transaction in SAP GUI for HTML, in the browser (the desktop app hands it to the default browser). */
+export function openTransaction(transaction: string) {
+  const { session } = getState();
+  if (!session) return;
+  if (session.demo) {
+    toast("info", "O sistema demo não tem SAP GUI: num sistema real isto abre a transação no SAP GUI para HTML.");
+    return;
+  }
+  const params = new URLSearchParams({ "~transaction": transaction });
+  if (session.client) params.set("sap-client", session.client);
+  if (session.language) params.set("sap-language", session.language);
+  window.open(`${session.url}/sap/bc/gui/sap/its/webgui?${params}`, "_blank", "noopener");
+  log("info", `SAP GUI para HTML: ${transaction}`);
+}
+
+/** F8: a program runs in SAP GUI for HTML, a console class (IF_OO_ADT_CLASSRUN) in the console panel. */
+export async function run() {
+  const tab = activeTab();
+  if (!tab) return;
+  const main = tab.ref.type.split("/")[0];
+  if (main !== "PROG" && main !== "CLAS") {
+    toast("info", `${tab.ref.name} não é executável (programas e classes de consola são).`);
+    return;
+  }
+  if (!(await ensureActive(tab.key))) return;
+  if (main === "PROG") {
+    if (tab.ref.type !== "PROG/P") {
+      toast("info", "Um include não se executa sozinho: executa o programa principal.");
+      return;
+    }
+    openTransaction(`*SE38 RS38M-PROGRAMM=${tab.ref.name};DYNP_OKCODE=STRT`);
+    return;
+  }
+  updateTab(tab.key, { busy: "running" });
+  try {
+    const { output } = await api.runClass(tab.ref.name);
+    setState((s) => ({
+      consoleRuns: [...s.consoleRuns.slice(-19), { id: Date.now(), className: tab.ref.name, at: new Date(), output }],
+      panelVisible: true,
+      panelTab: "console",
+    }));
+  } catch (e) {
+    toast("error", `Não foi possível executar ${tab.ref.name}: ${errorText(e)}`);
+  } finally {
+    updateTab(tab.key, { busy: undefined });
+  }
+}
+
+export async function runUnitTests() {
+  const tab = activeTab();
+  if (!tab) return;
+  if (!(await ensureActive(tab.key))) return;
+  updateTab(tab.key, { busy: "testing" });
+  try {
+    const classes = await api.unitTests(tab.ref.uri);
+    setState({ unitResults: { objectName: tab.ref.name, at: new Date(), classes }, panelVisible: true, panelTab: "tests" });
+    const methods = classes.flatMap((c) => c.methods);
+    const failed = methods.filter((m) => m.alerts.some((a) => a.kind !== "warning")).length + classes.filter((c) => c.alerts.some((a) => a.kind !== "warning")).length;
+    if (!methods.length) toast("info", `${tab.ref.name} não tem testes ABAP Unit`);
+    else if (failed) toast("error", `ABAP Unit: ${failed} de ${methods.length} teste(s) falharam`);
+    else toast("success", `ABAP Unit: ${methods.length} teste(s) passaram`);
+  } catch (e) {
+    toast("error", `ABAP Unit falhou: ${errorText(e)}`);
+  } finally {
+    updateTab(tab.key, { busy: undefined });
+  }
+}
+
+export type CreateResult = { status: "created" } | { status: "needsTransport"; transports: { number: string; text: string; owner: string }[] } | { status: "failed"; error: string };
+
+export async function createObject(request: CreateRequest): Promise<CreateResult> {
+  try {
+    const result = await api.create(request);
+    if (result.status === "needsTransport") return { status: "needsTransport", transports: result.transports };
+    toast("success", `${request.name.toUpperCase()} criado${result.transport ? ` (ordem ${result.transport})` : ""}`);
+    setState((s) => ({ repositoryVersion: s.repositoryVersion + 1 }));
+    await openObject(result.uri);
+    return { status: "created" };
+  } catch (e) {
+    return { status: "failed", error: errorText(e) };
   }
 }
 

@@ -19,7 +19,7 @@ export function StatusBar() {
     return [e, w].join(",");
   });
   const [errors, warnings] = totals.split(",").map(Number);
-  const busyLabel = { saving: "A gravar…", activating: "A ativar…", checking: "A verificar…", formatting: "A formatar…" } as const;
+  const busyLabel = { saving: "A gravar…", activating: "A ativar…", checking: "A verificar…", formatting: "A formatar…", running: "A executar…", testing: "A correr testes…" } as const;
 
   return (
     <footer className="statusbar">

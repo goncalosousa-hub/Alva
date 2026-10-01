@@ -264,4 +264,31 @@ START-OF-SELECTION.
   WRITE / zcl_string_utils=>repeat( iv_text = \`=\` iv_times = 20 ).
 `,
   },
+  {
+    name: "ZCL_ALVA_HELLO",
+    type: "CLAS/OC",
+    description: "Exemplo de consola (F8)",
+    packageName: "$ZALVA_LOCAL",
+    source: `CLASS zcl_alva_hello DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    INTERFACES if_oo_adt_classrun.
+
+ENDCLASS.
+
+
+
+CLASS zcl_alva_hello IMPLEMENTATION.
+
+  METHOD if_oo_adt_classrun~main.
+    out->write( 'Olá do Alva!' ).
+    out->write( |Ocupação de 200 lugares com 50 ocupados: 25%| ).
+  ENDMETHOD.
+
+ENDCLASS.
+`,
+  },
 ];

@@ -3,6 +3,8 @@ import type {
   ApiErrorBody,
   CompletionItem,
   ConnectionInput,
+  CreateOutcome,
+  CreateRequest,
   DefinitionTarget,
   Diagnostic,
   ObjectRef,
@@ -11,6 +13,7 @@ import type {
   SaveRequest,
   SessionInfo,
   TreeNode,
+  UnitTestClassResult,
 } from "../shared/types";
 
 export class ApiError extends Error {
@@ -71,4 +74,7 @@ export const api = {
   activate: (name: string, objectUri: string) => call<ActivationOutcome>("POST", "/api/object/activate", { name, objectUri }),
   prettyPrint: (source: string) => call<{ source: string }>("POST", "/api/prettyprint", { source }),
   inactive: () => call<ObjectRef[]>("GET", "/api/inactive"),
+  create: (request: CreateRequest) => call<CreateOutcome>("POST", "/api/objects", request),
+  runClass: (name: string) => call<{ output: string }>("POST", "/api/object/run", { name }),
+  unitTests: (objectUri: string) => call<UnitTestClassResult[]>("POST", "/api/object/unittests", { objectUri }),
 };

@@ -1,8 +1,8 @@
-import { AlertCircle, AlertTriangle, Info, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Severity } from "../../shared/types";
-import { allProblems, reveal } from "../ide";
-import { setState, useStore } from "../store";
+import { allProblems, openObject, reveal } from "../ide";
+import { setState, useStore, type PanelTab } from "../store";
 
 const SEVERITY_ICON: Record<Severity, typeof Info> = { error: AlertCircle, warning: AlertTriangle, info: Info };
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
@@ -46,6 +46,87 @@ function Problems() {
   );
 }
 
+function goTo(uri: string | undefined, line: number | undefined) {
+  if (uri) void openObject(uri, line ? { line, column: 1 } : undefined);
+}
+
+function Tests() {
+  const results = useStore((s) => s.unitResults);
+  if (!results) return <div className="panel-empty">Corre os testes ABAP Unit do objeto aberto com Ctrl+Shift+F10.</div>;
+  const methods = results.classes.flatMap((c) => c.methods);
+  const failed = (alerts: { kind: string }[]) => alerts.some((a) => a.kind !== "warning");
+  const failures = methods.filter((m) => failed(m.alerts)).length;
+  return (
+    <div className="tests" data-testid="unit-results">
+      <div className={`tests-summary ${failures ? "failed" : "passed"}`}>
+        {failures ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+        {results.objectName}: {methods.length - failures} de {methods.length} teste(s) passaram
+        <time>{results.at.toLocaleTimeString()}</time>
+      </div>
+      <ul>
+        {results.classes.map((c) => (
+          <li key={c.name}>
+            <button type="button" className="test-row class" onClick={() => goTo(c.uri, c.line)}>
+              {failed(c.alerts) || c.methods.some((m) => failed(m.alerts)) ? <XCircle size={14} className="fail" /> : <CheckCircle2 size={14} className="pass" />}
+              <span>{c.name}</span>
+            </button>
+            {c.alerts.map((a, i) => (
+              <Alert key={i} alert={a} indent={1} />
+            ))}
+            <ul>
+              {c.methods.map((m) => (
+                <li key={m.name}>
+                  <button type="button" className="test-row method" onClick={() => goTo(m.uri, m.line)}>
+                    {failed(m.alerts) ? <XCircle size={14} className="fail" /> : <CheckCircle2 size={14} className="pass" />}
+                    <span>{m.name}</span>
+                    <span className="test-time">{(m.time * 1000).toFixed(0)} ms</span>
+                  </button>
+                  {m.alerts.map((a, i) => (
+                    <Alert key={i} alert={a} indent={2} />
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Alert({ alert, indent }: { alert: { kind: string; title: string; details: string[]; uri?: string; line?: number }; indent: number }) {
+  return (
+    <button type="button" className={`test-alert kind-${alert.kind}`} style={{ paddingLeft: 16 + indent * 18 }} onClick={() => goTo(alert.uri, alert.line)}>
+      <span className="test-alert-title">{alert.title}</span>
+      {alert.details.map((d, i) => (
+        <span key={i} className="test-alert-detail">
+          {d}
+        </span>
+      ))}
+    </button>
+  );
+}
+
+function Console() {
+  const runs = useStore((s) => s.consoleRuns);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [runs.length]);
+  if (!runs.length) return <div className="panel-empty">F8 numa classe com IF_OO_ADT_CLASSRUN mostra aqui a saída.</div>;
+  return (
+    <div className="console" data-testid="console">
+      {runs.map((r) => (
+        <section key={r.id}>
+          <header>
+            {r.className} <time>{r.at.toLocaleTimeString()}</time>
+          </header>
+          <pre>{r.output || "(sem saída)"}</pre>
+        </section>
+      ))}
+      <div ref={end} />
+    </div>
+  );
+}
+
 function Output() {
   const log = useStore((s) => s.log);
   const end = useRef<HTMLLIElement>(null);
@@ -63,6 +144,13 @@ function Output() {
   );
 }
 
+const TABS: { id: PanelTab; label: string }[] = [
+  { id: "problems", label: "Problemas" },
+  { id: "tests", label: "Testes" },
+  { id: "console", label: "Consola" },
+  { id: "output", label: "Saída" },
+];
+
 export function BottomPanel() {
   const panelTab = useStore((s) => s.panelTab);
   const counts = useStore((s) => {
@@ -79,23 +167,23 @@ export function BottomPanel() {
   return (
     <section className="panel" aria-label="Painel inferior">
       <div className="panel-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={panelTab === "problems"} className={panelTab === "problems" ? "active" : ""} onClick={() => setState({ panelTab: "problems" })}>
-          Problemas
-          {(errors !== "0" || warnings !== "0") && (
-            <span className="badge">
-              {errors !== "0" ? errors : warnings}
-            </span>
-          )}
-        </button>
-        <button type="button" role="tab" aria-selected={panelTab === "output"} className={panelTab === "output" ? "active" : ""} onClick={() => setState({ panelTab: "output" })}>
-          Saída
-        </button>
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={panelTab === t.id} className={panelTab === t.id ? "active" : ""} onClick={() => setState({ panelTab: t.id })}>
+            {t.label}
+            {t.id === "problems" && (errors !== "0" || warnings !== "0") && <span className="badge">{errors !== "0" ? errors : warnings}</span>}
+          </button>
+        ))}
         <span className="spacer" />
         <button type="button" className="icon-button" title="Fechar painel (Ctrl+J)" onClick={() => setState({ panelVisible: false })}>
           <X size={14} />
         </button>
       </div>
-      <div className="panel-body">{panelTab === "problems" ? <Problems /> : <Output />}</div>
+      <div className="panel-body">
+        {panelTab === "problems" && <Problems />}
+        {panelTab === "tests" && <Tests />}
+        {panelTab === "console" && <Console />}
+        {panelTab === "output" && <Output />}
+      </div>
     </section>
   );
 }

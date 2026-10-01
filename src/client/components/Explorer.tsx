@@ -1,10 +1,10 @@
-import { ChevronDown, ChevronRight, Loader2, Plus, RefreshCw, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FilePlus2, FolderPlus, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { TreeNode } from "../../shared/types";
 import { api } from "../api";
 import { openObject } from "../ide";
 import { prefs } from "../prefs";
-import { systemKey, useStore } from "../store";
+import { setState, systemKey, useStore } from "../store";
 import { TypeIcon } from "./TypeIcon";
 
 interface Loaded {
@@ -46,6 +46,9 @@ function PackageNode({ name, description, depth, onRemove, refreshToken }: { nam
           <TypeIcon type="DEVC/K" size={15} />
           <span className="tree-name">{name}</span>
           {description && <span className="tree-desc">{description}</span>}
+        </button>
+        <button type="button" className="icon-button tree-action" title={`Novo objeto em ${name}`} onClick={() => setState({ overlay: { kind: "newObject", packageName: name } })}>
+          <FilePlus2 size={13} />
         </button>
         {onRemove && (
           <button type="button" className="icon-button tree-action" title="Remover dos favoritos" onClick={onRemove}>
@@ -113,7 +116,10 @@ export function Explorer() {
   const [favorites, setFavorites] = useState(() => prefs.favorites(key, session.demo ? ["ZALVA_DEMO", "$ZALVA_LOCAL"] : []));
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
-  const [refreshToken, setRefreshToken] = useState(0);
+  const [manualRefresh, setRefreshToken] = useState(0);
+  // Saving, creating and activating change what packages contain.
+  const repositoryVersion = useStore((s) => s.repositoryVersion);
+  const refreshToken = manualRefresh + repositoryVersion;
 
   useEffect(() => {
     const onAdd = (e: Event) => {
@@ -146,8 +152,11 @@ export function Explorer() {
       <div className="side-header">
         <span>Pacotes</span>
         <div className="side-actions">
-          <button type="button" className="icon-button" title="Adicionar pacote" onClick={() => setAdding(true)}>
-            <Plus size={15} />
+          <button type="button" className="icon-button" title="Novo objeto ABAP" onClick={() => setState({ overlay: { kind: "newObject" } })}>
+            <FilePlus2 size={14} />
+          </button>
+          <button type="button" className="icon-button" title="Adicionar pacote aos favoritos" onClick={() => setAdding(true)}>
+            <FolderPlus size={14} />
           </button>
           <button type="button" className="icon-button" title="Atualizar" onClick={() => setRefreshToken((t) => t + 1)}>
             <RefreshCw size={14} />

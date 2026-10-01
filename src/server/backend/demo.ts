@@ -3,6 +3,8 @@ import {
   CLASS_INCLUDE_LABELS,
   type ActivationOutcome,
   type CompletionItem,
+  type CreateOutcome,
+  type CreateRequest,
   type DefinitionTarget,
   type Diagnostic,
   type ObjectRef,
@@ -11,6 +13,7 @@ import {
   type SaveRequest,
   type SessionInfo,
   type TreeNode,
+  type UnitTestClassResult,
 } from "../../shared/types.js";
 import { DEMO_OBJECTS, DEMO_PACKAGES, DEMO_TRANSPORTS, type DemoObject } from "./demo-data.js";
 import { BackendError, type AbapBackend } from "./types.js";
@@ -57,6 +60,24 @@ const KEYWORDS = (
 ).split(" ");
 
 const DEMO_USER = "DEVELOPER";
+
+/** Standard SAP objects the demo code uses, declared so the demo syntax check knows them. */
+const SAP_STUBS: SourceFile[] = [
+  {
+    name: "IF_OO_ADT_CLASSRUN_OUT",
+    type: "INTF/OI",
+    source: `INTERFACE if_oo_adt_classrun_out PUBLIC.
+  METHODS write IMPORTING data TYPE any name TYPE string OPTIONAL RETURNING VALUE(output) TYPE REF TO if_oo_adt_classrun_out.
+ENDINTERFACE.`,
+  },
+  {
+    name: "IF_OO_ADT_CLASSRUN",
+    type: "INTF/OI",
+    source: `INTERFACE if_oo_adt_classrun PUBLIC.
+  METHODS main IMPORTING out TYPE REF TO if_oo_adt_classrun_out.
+ENDINTERFACE.`,
+  },
+];
 
 function sourceUriOf(o: StoredObject, include: string): string {
   return include === "main" ? `${o.uri}/source/main` : `${o.uri}/includes/${include}`;
@@ -115,7 +136,7 @@ export class DemoBackend implements AbapBackend {
 
   /** Every source of the system at its current (possibly inactive) state, except one, for cross-object checks. */
   private context(exceptObject: StoredObject, exceptInclude: string): SourceFile[] {
-    const files: SourceFile[] = [];
+    const files: SourceFile[] = [...SAP_STUBS];
     for (const o of this.all()) {
       for (const [include, s] of o.sources) {
         if (o === exceptObject && include === exceptInclude) continue;
@@ -299,6 +320,105 @@ export class DemoBackend implements AbapBackend {
     return this.all()
       .filter((o) => this.isInactive(o))
       .map((o) => this.ref(o));
+  }
+
+  async create(request: CreateRequest): Promise<CreateOutcome> {
+    const name = request.name.trim().toUpperCase();
+    const packageName = request.packageName.trim().toUpperCase();
+    const pkg = DEMO_PACKAGES.find((p) => p.name === packageName);
+    if (!pkg) throw new BackendError(`O pacote ${packageName} não existe`, 400, "badRequest");
+    const maxLength = request.type === "PROG/P" ? 40 : 30;
+    if (!/^[ZY][A-Z0-9_]*$/.test(name) || name.length > maxLength) {
+      throw new BackendError(`Nome inválido: ${name} (tem de começar por Z ou Y, até ${maxLength} caracteres A-Z, 0-9 e _)`, 400, "badRequest");
+    }
+    if (!request.description.trim()) throw new BackendError("A descrição é obrigatória", 400, "badRequest");
+    const uri = `/sap/bc/adt/${TYPE_PATHS[request.type]}/${name.toLowerCase()}`;
+    if (this.objects.has(uri)) throw new BackendError(`${name} já existe`, 409, "exists");
+    let transport: string | undefined;
+    if (!pkg.local) {
+      if (!request.transport) return { status: "needsTransport", packageName, transports: DEMO_TRANSPORTS };
+      if (!DEMO_TRANSPORTS.some((t) => t.number === request.transport)) {
+        throw new BackendError(`Ordem de transporte ${request.transport} não existe ou não é modificável`, 400, "transport");
+      }
+      transport = request.transport;
+    }
+    const lower = name.toLowerCase();
+    const templates: Record<string, string> =
+      request.type === "PROG/P"
+        ? { main: `REPORT ${lower}.\n` }
+        : request.type === "INTF/OI"
+          ? { main: `INTERFACE ${lower}\n  PUBLIC.\n\nENDINTERFACE.\n` }
+          : {
+              main: `CLASS ${lower} DEFINITION\n  PUBLIC\n  FINAL\n  CREATE PUBLIC.\n\n  PUBLIC SECTION.\n  PROTECTED SECTION.\n  PRIVATE SECTION.\nENDCLASS.\n\n\n\nCLASS ${lower} IMPLEMENTATION.\nENDCLASS.\n`,
+              definitions: "",
+              implementations: "",
+              macros: "",
+            };
+    // A new object exists only as an inactive version until it is activated.
+    const sources = new Map(Object.entries(templates).map(([kind, text]) => [kind, { active: "", inactive: text } as StoredSource]));
+    this.objects.set(uri, {
+      name,
+      type: request.type,
+      description: request.description.trim(),
+      packageName,
+      uri,
+      sources,
+      changedAt: new Date(),
+      changedBy: DEMO_USER,
+      transport,
+    });
+    return { status: "created", uri, transport };
+  }
+
+  async runClass(className: string): Promise<string> {
+    const o = this.objects.get(`/sap/bc/adt/oo/classes/${className.toLowerCase()}`);
+    if (!o) throw new BackendError(`Classe não encontrada: ${className}`, 404, "notFound");
+    const main = o.sources.get("main")!.active;
+    if (!/if_oo_adt_classrun~main/i.test(main)) {
+      throw new BackendError(`${o.name} não implementa IF_OO_ADT_CLASSRUN`, 400, "notRunnable");
+    }
+    // The demo system cannot run ABAP: it echoes the literals written with out->write( ).
+    const lines = [...main.matchAll(/out->write\(\s*(?:'([^']*)'|\|([^|]*)\||`([^`]*)`)\s*\)/gi)].map((m) => m[1] ?? m[2] ?? m[3]);
+    return lines.join("\n") + "\n";
+  }
+
+  async unitTests(objectUri: string): Promise<UnitTestClassResult[]> {
+    const o = this.get(objectUri);
+    const include = o.sources.has("testclasses") ? "testclasses" : "main";
+    const source = DemoBackend.current(this.source(o, include));
+    const uri = sourceUriOf(o, include);
+    const lines = source.split("\n");
+    const lineOf = (re: RegExp) => {
+      const i = lines.findIndex((l) => re.test(l));
+      return i < 0 ? undefined : i + 1;
+    };
+    const results: UnitTestClassResult[] = [];
+    // The demo system cannot run ABAP: a test fails when its method calls cl_abap_unit_assert=>fail.
+    for (const cls of source.matchAll(/CLASS\s+(\w+)\s+DEFINITION[^.]*FOR TESTING[^.]*\.([\s\S]*?)ENDCLASS\./gi)) {
+      const className = cls[1];
+      const methods = [...cls[2].matchAll(/METHODS\s+(\w+)\s+FOR TESTING/gi)].map((m) => m[1]);
+      if (!methods.length) continue; // test doubles: FOR TESTING classes without test methods
+      const impl = source.match(new RegExp(`CLASS\\s+${className}\\s+IMPLEMENTATION\\.([\\s\\S]*?)ENDCLASS\\.`, "i"))?.[1] ?? "";
+      results.push({
+        name: className.toUpperCase(),
+        uri,
+        line: lineOf(new RegExp(`CLASS\\s+${className}\\s+DEFINITION`, "i")),
+        alerts: [],
+        methods: methods.map((name) => {
+          const body = impl.match(new RegExp(`METHOD\\s+${name}\\.([\\s\\S]*?)ENDMETHOD\\.`, "i"))?.[1] ?? "";
+          const line = lineOf(new RegExp(`^\\s*METHOD\\s+${name}\\.`, "i"));
+          const fails = /cl_abap_unit_assert=>fail/i.test(body);
+          return {
+            name: name.toUpperCase(),
+            uri,
+            line,
+            time: 0.001,
+            alerts: fails ? [{ kind: "failedAssertion" as const, title: "Falha forçada (cl_abap_unit_assert=>fail)", details: [], uri, line }] : [],
+          };
+        }),
+      });
+    }
+    return results;
   }
 
   async close(): Promise<void> {}

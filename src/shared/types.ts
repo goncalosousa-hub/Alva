@@ -143,3 +143,51 @@ export interface ApiErrorBody {
   /** Machine readable reason, e.g. "unauthorized", "locked", "sap" */
   code?: string;
 }
+
+/** Object types Alva can create. */
+export type CreatableType = "PROG/P" | "CLAS/OC" | "INTF/OI";
+
+export interface CreateRequest {
+  type: CreatableType;
+  name: string;
+  description: string;
+  packageName: string;
+  transport?: string;
+}
+
+export type CreateOutcome =
+  | { status: "created"; uri: string; transport?: string }
+  | { status: "needsTransport"; transports: TransportOption[]; packageName?: string };
+
+export interface UnitTestAlert {
+  kind: "exception" | "failedAssertion" | "warning";
+  title: string;
+  details: string[];
+  /** Where the failure happened, when the system reports it. */
+  uri?: string;
+  line?: number;
+}
+
+export interface UnitTestMethodResult {
+  name: string;
+  /** Source URI and line of the test method, for navigation. */
+  uri?: string;
+  line?: number;
+  /** Seconds */
+  time: number;
+  alerts: UnitTestAlert[];
+}
+
+export interface UnitTestClassResult {
+  name: string;
+  uri?: string;
+  line?: number;
+  methods: UnitTestMethodResult[];
+  /** Alerts of the class itself (setup failures, ...). */
+  alerts: UnitTestAlert[];
+}
+
+export interface RunOutcome {
+  /** Console output of a class implementing IF_OO_ADT_CLASSRUN. */
+  output: string;
+}

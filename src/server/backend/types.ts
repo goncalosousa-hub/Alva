@@ -1,6 +1,8 @@
 import type {
   ActivationOutcome,
   CompletionItem,
+  CreateOutcome,
+  CreateRequest,
   DefinitionTarget,
   Diagnostic,
   ObjectRef,
@@ -9,6 +11,7 @@ import type {
   SaveRequest,
   SessionInfo,
   TreeNode,
+  UnitTestClassResult,
 } from "../../shared/types.js";
 
 /**
@@ -29,6 +32,10 @@ export interface AbapBackend {
   activate(name: string, objectUri: string): Promise<ActivationOutcome>;
   prettyPrint(source: string): Promise<string>;
   inactiveObjects(): Promise<ObjectRef[]>;
+  create(request: CreateRequest): Promise<CreateOutcome>;
+  /** Runs a class implementing IF_OO_ADT_CLASSRUN and returns its console output. */
+  runClass(className: string): Promise<string>;
+  unitTests(objectUri: string): Promise<UnitTestClassResult[]>;
   close(): Promise<void>;
 }
 

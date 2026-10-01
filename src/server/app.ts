@@ -235,6 +235,31 @@ export function createApp(options: AppOptions = {}) {
     withBackend(async (req, _res, b) => ({ source: await b.prettyPrint(str((req.body ?? {}).source, "source", { allowEmpty: true })) })),
   );
 
+  app.post(
+    "/api/objects",
+    withBackend(async (req, _res, b) => {
+      const body = req.body ?? {};
+      if (!["PROG/P", "CLAS/OC", "INTF/OI"].includes(body.type)) throw new BackendError("Tipo de objeto não suportado", 400, "badRequest");
+      return b.create({
+        type: body.type,
+        name: str(body.name, "name"),
+        description: str(body.description, "description"),
+        packageName: str(body.packageName, "packageName"),
+        transport: str(body.transport, "transport", { optional: true }).trim().toUpperCase() || undefined,
+      });
+    }),
+  );
+
+  app.post(
+    "/api/object/run",
+    withBackend(async (req, _res, b) => ({ output: await b.runClass(str((req.body ?? {}).name, "name")) })),
+  );
+
+  app.post(
+    "/api/object/unittests",
+    withBackend(async (req, _res, b) => b.unitTests(str((req.body ?? {}).objectUri, "objectUri"))),
+  );
+
   app.get(
     "/api/inactive",
     withBackend(async (_req, _res, b) => b.inactiveObjects()),
