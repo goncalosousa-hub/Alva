@@ -1,0 +1,163 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/** The tab strip of open objects (not the class include switcher). */
+const openTabs = (page: Page) => page.getByRole("tablist", { name: "Objetos abertos" });
+const activeTab = (page: Page) => openTabs(page).getByRole("tab", { selected: true });
+
+/** Logs on to the in-memory demo system. Each test gets a fresh server-side session. */
+async function startDemo(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: /sistema demo/i }).click();
+  await expect(page.getByText("Sistema demo")).toBeVisible();
+}
+
+async function openObject(page: Page, name: string) {
+  await page.keyboard.press("Control+Shift+A");
+  const dialog = page.getByRole("dialog", { name: "Abrir objeto ABAP" });
+  await dialog.getByLabel("Pesquisar objetos").fill(name);
+  await expect(dialog.getByRole("option").first()).toContainText(name);
+  await page.keyboard.press("Enter");
+  await expect(activeTab(page)).toContainText(name);
+  // Monaco is ready when the source lines are rendered.
+  await expect(page.locator(".view-lines")).toContainText(/REPORT|CLASS|INTERFACE/i);
+}
+
+/** Moves the cursor with Monaco's "go to line" (line:column). */
+async function goTo(page: Page, line: number, column = 1) {
+  await page.keyboard.press("Control+L");
+  await page.keyboard.type(`${line}:${column}`);
+  await page.keyboard.press("Enter");
+}
+
+async function typeAtEnd(page: Page, text: string) {
+  await page.locator(".view-lines").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(text);
+}
+
+test("edit, lint locally, save and activate a local object", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZHELLO_ALVA");
+
+  // A statement without its period: abaplint reports it while typing, no system round trip.
+  await typeAtEnd(page, "\nWRITE / lv_name");
+  await page.keyboard.press("Control+J");
+  const problems = page.getByTestId("problems");
+  await expect(problems).toContainText("abaplint(parser_error)");
+  await expect(activeTab(page).locator(".tab-close.dirty")).toBeVisible();
+
+  await page.keyboard.type(".");
+  await expect(page.locator(".panel-empty")).toHaveText("Sem problemas nos objetos abertos.");
+
+  // Local package: no transport needed.
+  await page.keyboard.press("Control+S");
+  await expect(activeTab(page).locator(".tab-name")).toHaveClass(/inactive/);
+  await expect(page.locator(".statusbar")).toContainText("Inativo");
+  await expect(activeTab(page).locator(".tab-close.dirty")).toHaveCount(0);
+
+  await page.keyboard.press("Control+F3");
+  await expect(page.locator(".toast")).toContainText("ZHELLO_ALVA ativado");
+  await expect(page.locator(".statusbar")).toContainText("Ativo");
+});
+
+test("saving in a transportable package asks for a transport request", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZR_FLIGHT_REPORT");
+  await typeAtEnd(page, '\n* changed by the e2e test');
+  await page.keyboard.press("Control+S");
+
+  const dialog = page.getByRole("dialog", { name: "Ordem de transporte" });
+  await expect(dialog).toContainText("ZALVA_DEMO");
+  await dialog.getByText("DEVK900131").click();
+  await dialog.getByRole("button", { name: "Gravar" }).click();
+
+  await expect(page.locator(".statusbar")).toContainText("DEVK900131");
+  await expect(page.locator(".statusbar")).toContainText("Inativo");
+
+  // The request is remembered for the next save.
+  await typeAtEnd(page, "\n* again");
+  await page.keyboard.press("Control+S");
+  await expect(activeTab(page).locator(".tab-close.dirty")).toHaveCount(0);
+  await expect(dialog).toHaveCount(0);
+
+  // Inactive objects view lists it and activates everything.
+  await page.keyboard.press("Control+Shift+F3");
+  const sidebar = page.locator(".sidebar");
+  await expect(sidebar).toContainText("ZR_FLIGHT_REPORT");
+  await sidebar.getByRole("button", { name: /Ativar objeto/ }).click();
+  await expect(sidebar).toContainText("Tudo ativado");
+});
+
+test("F3 navigates to the definition in another object", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZR_FLIGHT_REPORT");
+  // Line 22: "  DATA(lo_service) = NEW zcl_flight_service( lo_repository )."
+  await goTo(page, 22, 30);
+  await page.keyboard.press("F3");
+  await expect(activeTab(page)).toContainText("ZCL_FLIGHT_SERVICE");
+  await expect(openTabs(page).getByRole("tab")).toHaveCount(2);
+});
+
+test("syntax check on the system and code completion", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZHELLO_ALVA");
+  await typeAtEnd(page, "\nlv_unknown = 1.");
+  await page.keyboard.press("Control+F2");
+  await expect(page.getByTestId("problems")).toContainText(/lv_unknown/i);
+  await expect(page.getByTestId("problems")).toContainText("SAP");
+
+  await page.keyboard.press("Control+Z");
+  await typeAtEnd(page, "\nzcl_s");
+  await page.keyboard.press("Control+Space");
+  const suggest = page.locator(".suggest-widget");
+  await expect(suggest).toContainText("zcl_string_utils");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".view-lines")).toContainText("zcl_string_utils");
+});
+
+test("pretty printer, outline navigation and command palette", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZHELLO_ALVA");
+  await typeAtEnd(page, "\nif lv_name is initial.\nwrite 'x'.\nendif.");
+  await page.keyboard.press("Shift+F1");
+  await expect(page.locator(".view-lines")).toContainText("IF lv_name IS INITIAL.");
+
+  await openObject(page, "ZCL_FLIGHT_SERVICE");
+  const outline = page.getByRole("complementary", { name: "Outline" });
+  await outline.getByRole("button", { name: /occupation/ }).last().click();
+  await expect(page.locator(".statusbar")).toContainText("Ln 45");
+
+  await page.keyboard.press("Control+Shift+P");
+  await page.keyboard.type("tema claro");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});
+
+test("closing a tab with unsaved changes asks first", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZHELLO_ALVA");
+  await typeAtEnd(page, "\n* draft");
+  await page.keyboard.press("Alt+W");
+  const dialog = page.getByRole("dialog", { name: "Alterações por gravar" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  await expect(openTabs(page).getByRole("tab")).toHaveCount(1);
+  await page.keyboard.press("Alt+W");
+  await dialog.getByRole("button", { name: "Fechar sem gravar" }).click();
+  await expect(openTabs(page).getByRole("tab")).toHaveCount(0);
+});
+
+test("switches between the includes of a class", async ({ page }) => {
+  await startDemo(page);
+  await openObject(page, "ZCL_FLIGHT_SERVICE");
+  const includes = page.getByRole("tablist", { name: "Includes da classe" });
+  await includes.getByRole("tab", { name: "Classes de teste" }).click();
+  await expect(page.locator(".view-lines")).toContainText("ltc_flight_service");
+  await expect(activeTab(page)).toContainText("testes");
+  // The outline follows the include.
+  await expect(page.getByRole("complementary", { name: "Outline" })).toContainText("full_flights_are_skipped");
+
+  await includes.getByRole("tab", { name: "Classe global" }).click();
+  await expect(page.locator(".view-lines")).toContainText("CLASS zcl_flight_service DEFINITION");
+  await expect(openTabs(page).getByRole("tab")).toHaveCount(2);
+});
