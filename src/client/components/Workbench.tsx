@@ -12,6 +12,7 @@ import { InactiveView } from "./InactiveView";
 import { OutlinePanel } from "./OutlinePanel";
 import { StatusBar } from "./StatusBar";
 import { Toasts } from "./Toasts";
+import { UpdateButton } from "./UpdateButton";
 
 /** A drag handle that resizes a neighbouring pane. */
 function Resizer({ axis, onDrag }: { axis: "x" | "y"; onDrag: (delta: number) => void }) {
@@ -82,6 +83,7 @@ export function Workbench() {
           </span>
         </button>
         <div className="titlebar-actions">
+          <UpdateButton />
           {session.demo && <span className="demo-badge">Sistema demo</span>}
           <button type="button" className="icon-button" title="Comandos (Ctrl+Shift+P)" onClick={() => setState({ overlay: { kind: "commands" } })}>
             <Command size={15} />

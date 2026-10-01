@@ -3,7 +3,6 @@ name: Desktop
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -36,14 +35,16 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run dist:win
+      - run: npm run build
+      # On main, a new version in package.json becomes a GitHub release (tag v<version>) with the
+      # installer and latest.yml, which the installed apps read to update themselves. A version
+      # that is already released is left alone.
+      - name: Build (and publish on main)
+        shell: bash
+        run: npx electron-builder --win nsis --publish ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: Alva-Windows
           path: release/*.exe
-      - name: Publish the installer on the release of a version tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.exe
-          generate_release_notes: true

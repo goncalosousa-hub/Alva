@@ -6,6 +6,7 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { createApp } from "../server/app.js";
+import { setUpUpdates } from "./updates.js";
 
 // One window per user: a second launch focuses the existing one.
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -41,7 +42,12 @@ function createWindow() {
     backgroundColor: "#0f1218",
     icon: path.join(app.getAppPath(), "build", "icon.png"),
     show: false,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(import.meta.dirname, "preload.cjs"),
+    },
   });
   window.once("ready-to-show", () => window?.show());
 
@@ -88,6 +94,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const server = await startServer();
   baseUrl = server.url;
+  setUpUpdates(() => window);
   createWindow();
 
   app.on("activate", () => {

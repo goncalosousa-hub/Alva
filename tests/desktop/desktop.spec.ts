@@ -34,3 +34,22 @@ test("the desktop app starts, logs on to the demo system and edits an object", a
     await app.close();
   }
 });
+
+test("shows the update button when a new version was downloaded", async () => {
+  const app = await electron.launch({
+    executablePath: executablePath!,
+    args: ["--no-sandbox"],
+    env: { ...process.env, ALVA_FAKE_UPDATE: "9.9.9" },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole("button", { name: /sistema demo/i }).click();
+    const button = page.getByRole("button", { name: "Atualizar para 9.9.9" });
+    await expect(button).toBeVisible({ timeout: 20_000 });
+    await button.click();
+    await expect(page.getByText("A instalar 9.9.9")).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+

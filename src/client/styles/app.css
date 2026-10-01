@@ -1611,3 +1611,32 @@ button.status-item:hover {
   font-size: 12.5px;
   white-space: pre-wrap;
 }
+
+/* Desktop app updates */
+
+.update-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  margin-right: 6px;
+  border-radius: 7px;
+  background: var(--success);
+  color: #04130b;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.update-button:hover {
+  filter: brightness(1.08);
+}
+
+.update-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

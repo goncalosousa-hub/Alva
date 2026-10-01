@@ -35,8 +35,11 @@ Janela (Electron) ou browser   ──►  servidor local Node (127.0.0.1)  ─�
 
 ## Instalar (Windows)
 
-Descarrega `Alva-Setup-<versão>.exe` da página [Releases](../../releases) (ou, para a última versão de `main`,
-do artefacto *Alva-Windows* do workflow [Desktop](../../actions/workflows/desktop.yml)) e executa-o.
+Descarrega `Alva-Setup-<versão>.exe` da última [Release](../../releases/latest) e executa-o.
+
+Depois de instalado, o Alva **atualiza-se sozinho**: procura versões novas ao arrancar e de 4 em 4 horas,
+descarrega-as em segundo plano e mostra o botão **Atualizar para x.y.z** na barra de cima (ou usa o comando
+*Procurar atualizações do Alva*). Um clique reinicia já com a versão nova.
 
 O instalador ainda não é assinado digitalmente: o Windows SmartScreen pode avisar
 ("O Windows protegeu o computador") — escolhe *Mais informações* → *Executar mesmo assim*.
@@ -58,6 +61,12 @@ npm run dev                  # web com recarregamento: API em :3417, interface e
 ```
 
 Variáveis de ambiente da versão web: `PORT` (3417), `HOST` (`127.0.0.1`).
+
+### Publicar uma versão nova
+
+Basta subir a versão em `package.json` (ex.: `0.3.0` → `0.4.0`) e fazer push para `main`: o workflow *Desktop*
+cria a release `v0.4.0` com o instalador e o `latest.yml`, e as apps instaladas atualizam-se a partir daí.
+As releases têm de ser públicas para as apps as lerem sem login.
 
 ## Ligar a um sistema SAP
 
@@ -125,7 +134,7 @@ npx electron-builder --linux dir && ALVA_EXECUTABLE=release/linux-unpacked/alva 
 - Debugger ABAP
 - Comparar versões / histórico (revisions)
 - Integração abapGit
-- SSO (certificados X.509 / SAML) e atualizações automáticas na app de desktop
+- SSO (certificados X.509 / SAML) na app de desktop
 
 ---
 
