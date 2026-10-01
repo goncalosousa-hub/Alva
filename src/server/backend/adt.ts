@@ -61,7 +61,8 @@ export class AdtBackend implements AbapBackend {
   ) {}
 
   static async connect(input: ConnectionInput): Promise<AdtBackend> {
-    const url = input.url.trim().replace(/\/+$/, "");
+    // Only scheme, host and port matter: a pasted SAP GUI for HTML / Fiori address works too.
+    const url = new URL(input.url.trim()).origin;
     const options = url.startsWith("https:") ? createSSLConfig(!!input.allowSelfSigned) : {};
     const client = new ADTClient(url, input.user.trim(), input.password, input.client?.trim() || undefined, input.language?.trim() || undefined, {
       ...options,

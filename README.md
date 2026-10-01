@@ -1,14 +1,14 @@
 # Alva
 
-**Alva** é um IDE web, rápido e moderno, para desenvolvimento ABAP — uma alternativa ao Eclipse ADT.
-Corre localmente (servidor Node + browser) e fala com o sistema SAP através da mesma API REST
-que o Eclipse usa (ADT, `/sap/bc/adt`).
+**Alva** é um IDE rápido e moderno para desenvolvimento ABAP — uma alternativa ao Eclipse ADT.
+Instala-se como uma app de desktop (Windows, também Linux/macOS) ou corre no browser, e fala com o
+sistema SAP através da mesma API REST que o Eclipse usa (ADT, `/sap/bc/adt`).
 
 *Alva* é a primeira luz do dia: o que vem depois de um eclipse.
 
 ```
-Browser (React + Monaco)  ──►  servidor local Node (127.0.0.1)  ──►  SAP (ADT REST /sap/bc/adt)
-   editor, abaplint (worker)        sessão ADT, locks, transportes
+Janela (Electron) ou browser   ──►  servidor local Node (127.0.0.1)  ──►  SAP (ADT REST /sap/bc/adt)
+  React + Monaco, abaplint          sessão ADT, locks, transportes
 ```
 
 ## O que já faz
@@ -30,35 +30,54 @@ Browser (React + Monaco)  ──►  servidor local Node (127.0.0.1)  ──► 
 | **Paleta de comandos** | `Ctrl+Shift+P`, todos os atalhos em `Ctrl+K` |
 | **Sistema demo** | experimenta tudo sem SAP: um sistema em memória com classes, interface, programas, testes ABAP Unit e transportes |
 
-## Começar
+## Instalar (Windows)
+
+Descarrega `Alva-Setup-<versão>.exe` da página [Releases](../../releases) (ou, para a última versão de `main`,
+do artefacto *Alva-Windows* do workflow [Desktop](../../actions/workflows/desktop.yml)) e executa-o.
+
+O instalador ainda não é assinado digitalmente: o Windows SmartScreen pode avisar
+("O Windows protegeu o computador") — escolhe *Mais informações* → *Executar mesmo assim*.
+
+A app de desktop traz tudo o que precisa (não é preciso Node.js) e, como não é um browser,
+liberta atalhos como `Ctrl+W` (fechar separador) e `Ctrl+F4`.
+
+## Desenvolvimento
 
 Requer Node.js 20+.
 
 ```bash
 npm install
-npm run build
-npm start            # http://127.0.0.1:3417
+npm run desktop      # compila e abre a app de desktop
+npm run dist:win     # gera o instalador Windows em release/ (também dist:linux, dist:mac)
+
+npm run build && npm start   # versão web: http://127.0.0.1:3417
+npm run dev                  # web com recarregamento: API em :3417, interface em http://localhost:5173
 ```
 
-Desenvolvimento (recarrega ao gravar):
-
-```bash
-npm run dev          # API em :3417, interface em http://localhost:5173
-```
-
-Variáveis de ambiente: `PORT` (3417), `HOST` (`127.0.0.1`).
+Variáveis de ambiente da versão web: `PORT` (3417), `HOST` (`127.0.0.1`).
 
 ## Ligar a um sistema SAP
 
-No ecrã inicial indica o URL (`https://servidor:porta`), mandante, utilizador e palavra-passe.
+No ecrã inicial preenche:
 
-- O serviço ICF `/sap/bc/adt` tem de estar ativo (transação `SICF`) — é o mesmo que o Eclipse ADT usa.
-- O utilizador precisa das autorizações habituais de desenvolvimento ADT (`S_ADT_RES`, `S_DEVELOP`, `S_TCODE` para `SE80`, …).
-- Sistemas com certificado autoassinado ou de CA interna: marca *Aceitar certificados autoassinados*.
+| Campo | O que pôr |
+|---|---|
+| URL do sistema | o endereço HTTP(S) do servidor de aplicação: `https://<servidor>:443NN` ou `http://<servidor>:80NN`, com `NN` = número de instância (ex.: instância `00` → `https://10.10.98.56:44300`). Podes colar o endereço da página de login do SAP GUI para HTML ou do Fiori — só o servidor e a porta contam. |
+| Mandante, idioma | os mesmos do SAP GUI (ex.: `100`, `PT`) |
+| Utilizador, palavra-passe | os teus do SAP |
+
+Para confirmar o URL, abre no browser `<URL>/sap/bc/adt/discovery`: depois do login deve aparecer um XML.
+Se não abrir, a porta não é essa ou o serviço não está ativo.
+
+- O SAP Logon (SAP GUI) liga-se por RFC e mostra só o servidor e a instância; o Alva usa HTTP(S), como o Fiori.
+  A porta HTTP(S) está na transação `SMICM` → *Ir para* → *Serviços*.
+- O serviço ICF `/sap/bc/adt` tem de estar ativo (transação `SICF`) — é o que o Eclipse ADT usa.
+- O utilizador precisa das autorizações habituais de desenvolvimento ADT (`S_ADT_RES`, `S_DEVELOP`, …).
+- Certificado autoassinado ou de CA interna (habitual com endereços IP): marca *Aceitar certificados autoassinados*.
 
 ### Segurança
 
-- O servidor escuta só em `127.0.0.1` por omissão. Não o exponhas na rede sem autenticação à frente:
+- O servidor interno (na app de desktop, numa porta local aleatória) escuta só em `127.0.0.1`. Não o exponhas na rede sem autenticação à frente:
   quem chegar ao servidor usa a tua sessão SAP.
 - A palavra-passe vai apenas para o servidor local, que a usa para abrir a sessão ADT e a mantém só em memória.
   O browser guarda os perfis dos sistemas (URL, mandante, utilizador), nunca a palavra-passe.
@@ -68,6 +87,7 @@ No ecrã inicial indica o URL (`https://servidor:porta`), mandante, utilizador e
 
 ```
 src/
+  electron/          app de desktop: arranca o servidor numa porta local e abre a janela
   server/            Express: sessões, REST API
     backend/adt.ts   ligação a um sistema real (biblioteca abap-adt-api)
     backend/demo.ts  sistema demo em memória (verificação de sintaxe real via abaplint)
@@ -87,6 +107,7 @@ são mantidos por separador, e "ir para a definição" noutro objeto abre-o num 
 npm run typecheck
 npm test             # API e análise (Vitest)
 npm run build && npm run test:e2e   # browser (Playwright) contra o sistema demo
+npx electron-builder --linux dir && ALVA_EXECUTABLE=release/linux-unpacked/alva npm run test:desktop   # app de desktop
 ```
 
 ## Próximos passos
@@ -101,7 +122,7 @@ npm run build && npm run test:e2e   # browser (Playwright) contra o sistema demo
 - Debugger ABAP
 - Comparar versões / histórico (revisions)
 - Integração abapGit
-- App desktop (Tauri/Electron) com SSO (certificados X.509 / SAML)
+- SSO (certificados X.509 / SAML) e atualizações automáticas na app de desktop
 
 ---
 

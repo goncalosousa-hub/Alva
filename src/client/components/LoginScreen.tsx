@@ -102,12 +102,16 @@ export function LoginScreen() {
               URL do sistema
               <input
                 required
-                placeholder="https://s4hana.empresa.pt:44300"
+                placeholder="https://10.10.98.56:44300"
                 value={form.url}
                 onChange={(e) => set("url", e.target.value)}
                 autoComplete="url"
                 name="url"
               />
+              <span className="field-hint">
+                O endereço HTTP(S) do servidor SAP — podes colar o da página de login do SAP GUI para HTML ou do Fiori. Portas habituais: 443<em>NN</em> (HTTPS)
+                ou 80<em>NN</em> (HTTP), com <em>NN</em> = nº de instância.
+              </span>
             </label>
             <label>
               Mandante

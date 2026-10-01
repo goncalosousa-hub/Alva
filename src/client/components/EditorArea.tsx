@@ -1,10 +1,12 @@
 import { Circle, Loader2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { currentTheme } from "../commands";
+import { COMMANDS, currentTheme } from "../commands";
 import { closeTab, getEditor, openObject, reveal, setEditor, takePendingReveal } from "../ide";
 import { getModel, monaco } from "../monaco";
 import { setState, useStore, type Tab } from "../store";
 import { TypeIcon } from "./TypeIcon";
+
+const CLOSE_KEY = COMMANDS.find((c) => c.id === "close")?.shortcut ?? "Alt+W";
 
 const INCLUDE_SHORT: Record<string, string> = {
   definitions: "tipos locais (def.)",
@@ -63,7 +65,7 @@ function TabButton({ tab, active }: { tab: Tab; active: boolean }) {
         <button
           type="button"
           className={`tab-close ${tab.dirty ? "dirty" : ""}`}
-          title={tab.dirty ? "Alterações por gravar (Alt+W fecha)" : "Fechar (Alt+W)"}
+          title={tab.dirty ? `Alterações por gravar (${CLOSE_KEY} fecha)` : `Fechar (${CLOSE_KEY})`}
           aria-label={`Fechar ${tab.ref.name}`}
           onClick={(e) => {
             e.stopPropagation();

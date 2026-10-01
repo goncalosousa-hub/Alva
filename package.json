@@ -1,24 +1,24 @@
 {
   "name": "alva",
   "version": "0.1.0",
-  "description": "Alva: IDE web moderno para desenvolvimento ABAP (via ADT)",
+  "description": "Alva: IDE para ABAP, rápido e moderno (via ADT)",
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"tsx watch src/server/index.ts\" \"vite\"",
     "build": "vite build && tsc -p tsconfig.server.json",
     "start": "node dist/server/server/index.js",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "desktop": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:linux": "npm run build && electron-builder --linux AppImage --publish never",
+    "dist:mac": "npm run build && electron-builder --mac dmg --publish never",
+    "test:desktop": "playwright test -c playwright.desktop.config.ts"
   },
   "dependencies": {
     "@abaplint/core": "^2.120.63",
     "abap-adt-api": "^8.4.3",
-    "express": "^5.2.1",
-    "lucide-react": "^1.49.0",
-    "monaco-editor": "^0.57.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "zustand": "^5.0.15"
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@playwright/test": "1.63",
@@ -29,15 +29,59 @@
     "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "lucide-react": "^1.49.0",
+    "monaco-editor": "^0.57.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "supertest": "^7.3.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "zustand": "^5.0.15"
   },
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=20"
+  },
+  "author": "goncalosousa-hub",
+  "main": "dist/server/electron/main.js",
+  "build": {
+    "appId": "io.github.goncalosousa-hub.alva",
+    "productName": "Alva",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png",
+      "artifactName": "Alva-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Alva"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Development",
+      "artifactName": "Alva-${version}.${ext}"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    }
   }
 }

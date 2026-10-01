@@ -1486,3 +1486,9 @@ button.status-item:hover {
 .include-bar button.dirty::after {
   content: " •";
 }
+
+.field-hint {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-faint);
+}

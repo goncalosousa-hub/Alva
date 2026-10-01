@@ -20,6 +20,9 @@ const withTab = (fn: (key: string) => void) => () => {
   if (tab) fn(tab.key);
 };
 
+/** In the desktop app the browser's own shortcuts (Ctrl+W closes the window...) are free to use. */
+export const DESKTOP = typeof navigator !== "undefined" && /\bElectron\//.test(navigator.userAgent);
+
 export const COMMANDS: Command[] = [
   { id: "quickOpen", title: "Abrir objeto ABAP…", shortcut: "Ctrl+Shift+A", aliases: ["Ctrl+P"], run: () => setState({ overlay: { kind: "quickOpen" } }) },
   { id: "commands", title: "Mostrar todos os comandos", shortcut: "Ctrl+Shift+P", aliases: ["F1"], run: () => setState({ overlay: { kind: "commands" } }) },
@@ -32,8 +35,8 @@ export const COMMANDS: Command[] = [
   { id: "symbol", title: "Ir para símbolo no objeto…", shortcut: "Ctrl+O", aliases: ["Ctrl+Shift+O"], enabled: hasAbapTab, run: () => ide.getEditor() && (ide.getEditor()!.focus(), ide.getEditor()!.trigger("alva", "editor.action.quickOutline", {})) },
   { id: "gotoLine", title: "Ir para a linha…", shortcut: "Ctrl+L", enabled: hasTab, run: () => ide.getEditor() && (ide.getEditor()!.focus(), ide.getEditor()!.trigger("alva", "editor.action.gotoLine", {})) },
   { id: "reload", title: "Recarregar objeto do sistema", enabled: hasTab, run: withTab((k) => void ide.reloadTab(k)) },
-  { id: "close", title: "Fechar separador", shortcut: "Alt+W", enabled: hasTab, run: withTab((k) => ide.closeTab(k)) },
-  { id: "closeAll", title: "Fechar todos os separadores", shortcut: "Alt+Shift+W", enabled: hasTab, run: () => ide.closeAllTabs() },
+  { id: "close", title: "Fechar separador", shortcut: DESKTOP ? "Ctrl+W" : "Alt+W", aliases: DESKTOP ? ["Alt+W", "Ctrl+F4"] : [], enabled: hasTab, run: withTab((k) => ide.closeTab(k)) },
+  { id: "closeAll", title: "Fechar todos os separadores", shortcut: DESKTOP ? "Ctrl+Shift+W" : "Alt+Shift+W", aliases: DESKTOP ? ["Alt+Shift+W"] : [], enabled: hasTab, run: () => ide.closeAllTabs() },
   { id: "nextTab", title: "Separador seguinte", shortcut: "Alt+PageDown", enabled: hasTab, run: () => cycleTab(1) },
   { id: "prevTab", title: "Separador anterior", shortcut: "Alt+PageUp", enabled: hasTab, run: () => cycleTab(-1) },
   { id: "explorer", title: "Mostrar/ocultar explorador de pacotes", shortcut: "Ctrl+B", run: () => toggleSidebar("explorer") },
