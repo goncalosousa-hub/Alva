@@ -6,10 +6,16 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 import { createApp } from "../server/app.js";
+import { setUpSecrets } from "./secrets.js";
 import { setUpUpdates } from "./updates.js";
+
+// Tests point the app at a throwaway data folder (saved systems, remembered passwords).
+if (process.env.ALVA_USER_DATA) app.setPath("userData", process.env.ALVA_USER_DATA);
 
 // One window per user: a second launch focuses the existing one.
 if (!app.requestSingleInstanceLock()) app.quit();
+
+const FIXED_PORT = 34717;
 
 let window: BrowserWindow | null = null;
 let baseUrl = "";
@@ -17,11 +23,15 @@ let baseUrl = "";
 async function startServer(): Promise<{ url: string; close: () => Promise<void> }> {
   const clientDir = path.join(app.getAppPath(), "dist", "client");
   const server = createApp({ clientDir });
-  const listener = server.app.listen(0, "127.0.0.1");
-  await new Promise<void>((resolve, reject) => {
-    listener.once("listening", resolve);
-    listener.once("error", reject);
-  });
+  // A fixed port keeps the page's origin, and so its saved systems and preferences, the same
+  // between launches; a random one only if something else already uses it.
+  const listen = (port: number) =>
+    new Promise<import("node:http").Server>((resolve, reject) => {
+      const l = server.app.listen(port, "127.0.0.1");
+      l.once("listening", () => resolve(l));
+      l.once("error", reject);
+    });
+  const listener = await listen(FIXED_PORT).catch(() => listen(0));
   const { port } = listener.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}/`,
@@ -95,6 +105,7 @@ app.whenReady().then(async () => {
   const server = await startServer();
   baseUrl = server.url;
   setUpUpdates(() => window);
+  setUpSecrets();
   createWindow();
 
   app.on("activate", () => {

@@ -14,4 +14,9 @@ export interface DesktopBridge {
   checkForUpdates(): Promise<void>;
   installUpdate(): Promise<void>;
   onUpdateStatus(listener: (status: UpdateStatus) => void): () => void;
+  /** Remembered passwords, encrypted by the operating system. */
+  canStorePasswords(): Promise<boolean>;
+  getPassword(id: string): Promise<string | null>;
+  setPassword(id: string, password: string): Promise<boolean>;
+  deletePassword(id: string): Promise<void>;
 }

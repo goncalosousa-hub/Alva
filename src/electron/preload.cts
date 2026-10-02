@@ -16,6 +16,10 @@ const bridge: DesktopBridge = {
     void ipcRenderer.invoke("alva:update-status").then(listener);
     return () => ipcRenderer.removeListener("alva:update-status", handler);
   },
+  canStorePasswords: () => ipcRenderer.invoke("alva:can-store-passwords"),
+  getPassword: (id) => ipcRenderer.invoke("alva:get-password", id),
+  setPassword: (id, password) => ipcRenderer.invoke("alva:set-password", id, password),
+  deletePassword: (id) => ipcRenderer.invoke("alva:delete-password", id),
 };
 
 contextBridge.exposeInMainWorld("alvaDesktop", bridge);

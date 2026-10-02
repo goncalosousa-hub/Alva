@@ -86,4 +86,13 @@ describe("system URL", () => {
     expect(await resolveSystemUrl(`127.0.0.1:${logonPage.port}`)).toBe(`http://127.0.0.1:${logonPage.port}`);
     logonPage.server.close();
   });
+
+  it("does not follow a redirect to another site (SAML logon, e.g. Google)", async () => {
+    const saml = await serveWith((_path, res) => {
+      res.writeHead(302, { location: "https://accounts.google.com/o/saml2/idp?SAMLRequest=x" });
+      res.end();
+    });
+    expect(await resolveSystemUrl(`127.0.0.1:${saml.port}`)).toBe(`http://127.0.0.1:${saml.port}`);
+    saml.server.close();
+  });
 });

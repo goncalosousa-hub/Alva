@@ -19,9 +19,21 @@ function write(key: string, value: unknown) {
   }
 }
 
+export type Environment = "DEV" | "QAS" | "PRD" | "OUTRO";
+
+export const ENVIRONMENTS: { id: Environment; label: string }[] = [
+  { id: "DEV", label: "Desenvolvimento" },
+  { id: "QAS", label: "Qualidade" },
+  { id: "PRD", label: "Produção" },
+  { id: "OUTRO", label: "Outro" },
+];
+
 export interface SystemProfile {
   id: string;
   name: string;
+  environment?: Environment;
+  /** The password is kept (encrypted by the OS) in the desktop app. */
+  rememberPassword?: boolean;
   url: string;
   client: string;
   user: string;

@@ -221,3 +221,38 @@ test("a new object in a transportable package asks for the transport in the dial
   await expect(activeTab(page)).toContainText("ZR_E2E_REPORT");
   await expect(page.locator(".view-lines")).toContainText("REPORT zr_e2e_report.");
 });
+
+test("saves DEV, QAS and PRD systems and fills the form from them", async ({ page }) => {
+  await page.goto("/");
+  const fill = async (name: string, env: string, url: string, client: string) => {
+    await page.getByRole("button", { name: "Novo sistema" }).click();
+    await page.getByLabel("Nome").fill(name);
+    await page.getByLabel("Ambiente").selectOption(env);
+    await page.getByLabel("URL do sistema").fill(url);
+    await page.getByLabel("Mandante").fill(client);
+    await page.getByLabel("Utilizador").fill("GONCA.SOUSA");
+    await page.getByRole("button", { name: "Guardar" }).click();
+    await expect(page.locator(".toast", { hasText: `«${name}» guardado` })).toBeVisible();
+  };
+  await fill("S4 DEV", "DEV", "10.10.98.56", "100");
+  await fill("S4 QAS", "QAS", "10.10.98.24", "100");
+  await fill("S4 PRD", "PRD", "10.10.98.10", "300");
+
+  await page.reload();
+  const systems = page.getByRole("list", { name: "Sistemas guardados" });
+  await expect(systems).toContainText("S4 DEV");
+  await expect(systems).toContainText("S4 QAS");
+  await expect(systems.locator(".env-prd")).toHaveText("PRD");
+
+  await systems.locator("button.system", { hasText: "S4 QAS" }).click();
+  await expect(page.getByLabel("URL do sistema")).toHaveValue("10.10.98.24");
+  await expect(page.getByLabel("Ambiente")).toHaveValue("QAS");
+
+  await systems.locator("button.system", { hasText: "S4 PRD" }).click();
+  await expect(page.getByLabel("Mandante")).toHaveValue("300");
+  await expect(page.getByText("Sistema de produção")).toBeVisible();
+
+  await systems.getByRole("button", { name: "Esquecer S4 PRD" }).click();
+  await expect(systems).not.toContainText("S4 PRD");
+});
+

@@ -61,12 +61,13 @@ export async function resolveSystemUrl(input: string, timeoutMs = 4000): Promise
   // ADT answers its discovery with 200, or 401/403 before logon.
   const adt = results.find((r) => r.status === 200 || r.status === 401 || r.status === 403);
   if (adt) return adt.url;
-  // A redirect: to another address (often HTTP → HTTPS on another port), or to a logon page of
-  // the same server, which still accepts the logon ADT sends.
+  // A redirect: to the same server on another port (often HTTP → HTTPS), or to a logon page,
+  // possibly of another site (SAML single sign-on, e.g. Google). Only the first is followed: in the
+  // other cases this is the SAP server, and the ADT logon (user and password) goes to it directly.
   const redirect = results.find((r) => r.status !== undefined && r.status >= 300 && r.status < 400);
   if (redirect) {
     const target = redirect.location ? new URL(redirect.location, redirect.url).origin : redirect.url;
-    if (target === redirect.url) return redirect.url;
+    if (target === redirect.url || new URL(target).hostname !== new URL(redirect.url).hostname) return redirect.url;
     const followed = await probe(target, timeoutMs);
     if (followed.status !== undefined && followed.status < 500) return target;
     throw new BackendError(

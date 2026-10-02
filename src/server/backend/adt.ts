@@ -123,7 +123,11 @@ export class AdtBackend implements AbapBackend {
       // Wrong password needs no diagnosis; anything else gets what each ADT address answered.
       if (error instanceof BackendError && error.code !== "unauthorized" && error.code !== "certificate") {
         const details = await diagnoseLogon({ url, user: input.user.trim(), password: input.password, client: input.client?.trim(), language: input.language?.trim() }).catch(() => []);
-        if (details.length) throw new BackendError(`${error.message}\n\nDiagnóstico:\n${details.join("\n")}`, error.status, error.code);
+        const sso = details.some((d) => /→ https?:\/\/(?!10\.|127\.|192\.168\.)/.test(d) && !d.includes(new URL(url).host));
+        const hint = sso
+          ? "\n\nO SAP envia o pedido do ADT para um login externo (SAML / login único). Para o Alva e o Eclipse entrarem com utilizador e palavra-passe, o serviço /sap/bc/adt tem de aceitar autenticação básica: SICF → /sap/bc/adt → Dados de logon → Procedimento «Standard» ou «Alternativo» com «Basic Authentication»."
+          : "";
+        if (details.length) throw new BackendError(`${error.message}${hint}\n\nDiagnóstico:\n${details.join("\n")}`, error.status, error.code);
       }
       throw error;
     }

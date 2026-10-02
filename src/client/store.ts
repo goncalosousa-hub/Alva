@@ -53,6 +53,8 @@ export type PanelTab = "problems" | "tests" | "console" | "output";
 
 interface State {
   session: SessionInfo | null;
+  /** Name and environment of the saved system the session belongs to. */
+  profile: { name: string; environment?: "DEV" | "QAS" | "PRD" | "OUTRO" } | null;
   tabs: Tab[];
   activeKey: string | null;
   sidebar: SidebarView | null;
@@ -74,6 +76,7 @@ interface State {
 
 export const useStore = create<State>(() => ({
   session: null,
+  profile: null,
   tabs: [],
   activeKey: null,
   sidebar: "explorer",

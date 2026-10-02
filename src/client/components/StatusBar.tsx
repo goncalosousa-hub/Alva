@@ -5,6 +5,7 @@ import { typeLabel } from "./TypeIcon";
 
 export function StatusBar() {
   const session = useStore((s) => s.session)!;
+  const profile = useStore((s) => s.profile);
   const tab = useStore((s) => s.tabs.find((t) => t.key === s.activeKey));
   const cursor = useStore((s) => s.cursor);
   const release = useStore((s) => s.settings.release);
@@ -23,8 +24,9 @@ export function StatusBar() {
 
   return (
     <footer className="statusbar">
-      <span className={`status-system ${session.demo ? "demo" : ""}`} title={session.url}>
-        <Database size={12} /> {session.systemId}
+      <span className={`status-system ${session.demo ? "demo" : `env-${(profile?.environment ?? "OUTRO").toLowerCase()}`}`} title={session.url}>
+        <Database size={12} /> {profile?.environment && profile.environment !== "OUTRO" ? `${profile.environment} · ` : ""}
+        {profile?.name ?? session.systemId}
         {session.client && ` · ${session.client}`} · {session.user}
       </span>
       <button type="button" className="status-item" onClick={() => setState((s) => ({ panelVisible: !s.panelVisible, panelTab: "problems" }))} title="Problemas (Ctrl+J)">
