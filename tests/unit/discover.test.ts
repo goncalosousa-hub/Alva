@@ -13,6 +13,13 @@ function serve(handler: (path: string) => number): Promise<{ server: Server; por
   });
 }
 
+function serveWith(handler: (path: string, res: import("node:http").ServerResponse) => void): Promise<{ server: Server; port: number }> {
+  return new Promise((resolve) => {
+    const server = createServer((req, res) => handler(req.url ?? "", res));
+    server.listen(0, "127.0.0.1", () => resolve({ server, port: (server.address() as AddressInfo).port }));
+  });
+}
+
 let adt: { server: Server; port: number };
 let plainWeb: { server: Server; port: number };
 
@@ -60,5 +67,23 @@ describe("system URL", () => {
 
   it("rejects text that is not an address", async () => {
     await expect(resolveSystemUrl("not a url")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("follows a redirect to another address (e.g. HTTP to HTTPS)", async () => {
+    const redirecting = await serveWith((_path, res) => {
+      res.writeHead(302, { location: `http://127.0.0.1:${adt.port}/sap/bc/adt/discovery` });
+      res.end();
+    });
+    expect(await resolveSystemUrl(`127.0.0.1:${redirecting.port}`)).toBe(`http://127.0.0.1:${adt.port}`);
+    redirecting.server.close();
+  });
+
+  it("keeps a server that redirects to its own logon page", async () => {
+    const logonPage = await serveWith((_path, res) => {
+      res.writeHead(302, { location: "/sap/public/bc/icf/logon" });
+      res.end();
+    });
+    expect(await resolveSystemUrl(`127.0.0.1:${logonPage.port}`)).toBe(`http://127.0.0.1:${logonPage.port}`);
+    logonPage.server.close();
   });
 });

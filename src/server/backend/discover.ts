@@ -33,7 +33,7 @@ export function candidatesFor(input: string): string[] | null {
   return DEFAULT_PORTS.map(([scheme, p]) => `${scheme}://${host}:${p}`);
 }
 
-type Probe = { url: string; status?: number };
+type Probe = { url: string; status?: number; location?: string };
 
 /** Asks a candidate for the ADT discovery document; any HTTP answer means a server listens there. */
 function probe(url: string, timeoutMs: number): Promise<Probe> {
@@ -43,7 +43,8 @@ function probe(url: string, timeoutMs: number): Promise<Probe> {
     // Only checks where the system answers; the logon itself applies the user's certificate choice.
     const req = lib.request(target, { method: "GET", timeout: timeoutMs, rejectUnauthorized: false }, (res) => {
       res.resume();
-      resolve({ url, status: res.statusCode });
+      const location = typeof res.headers.location === "string" ? res.headers.location : undefined;
+      resolve({ url, status: res.statusCode, location });
     });
     req.on("timeout", () => req.destroy());
     req.on("error", () => resolve({ url }));
@@ -60,6 +61,20 @@ export async function resolveSystemUrl(input: string, timeoutMs = 4000): Promise
   // ADT answers its discovery with 200, or 401/403 before logon.
   const adt = results.find((r) => r.status === 200 || r.status === 401 || r.status === 403);
   if (adt) return adt.url;
+  // A redirect: to another address (often HTTP → HTTPS on another port), or to a logon page of
+  // the same server, which still accepts the logon ADT sends.
+  const redirect = results.find((r) => r.status !== undefined && r.status >= 300 && r.status < 400);
+  if (redirect) {
+    const target = redirect.location ? new URL(redirect.location, redirect.url).origin : redirect.url;
+    if (target === redirect.url) return redirect.url;
+    const followed = await probe(target, timeoutMs);
+    if (followed.status !== undefined && followed.status < 500) return target;
+    throw new BackendError(
+      `${redirect.url} redireciona para ${target}, que não respondeu. Indica o URL completo (ex. ${target}) e, se for HTTPS, marca «Aceitar certificados autoassinados».`,
+      502,
+      "network",
+    );
+  }
   const web = results.find((r) => r.status !== undefined);
   if (web) {
     throw new BackendError(
