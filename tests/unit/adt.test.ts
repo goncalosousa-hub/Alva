@@ -63,4 +63,21 @@ describe("ADT connection errors", () => {
     expect(err.message).toContain("/sap/bc/adt/discovery: HTTP 302 → /sap/public/bc/icf/logon");
     expect(err.message).toContain("/sap/bc/adt/compatibility/graph: HTTP 404");
   });
+
+  it("explains a logon that ADT refuses with 403 as a missing authorization", async () => {
+    const sap = createServer((req, res) => {
+      const path = (req.url ?? "").split("?")[0];
+      res.writeHead(403, { "content-type": "text/plain" });
+      res.end(`No authorization to access the resource  ${path}.`);
+    });
+    await new Promise<void>((resolve) => sap.listen(0, "127.0.0.1", resolve));
+    const port = (sap.address() as AddressInfo).port;
+    const err = await connectError(`http://127.0.0.1:${port}`);
+    sap.close();
+    expect(err.status).toBe(403);
+    expect(err.code).toBe("forbidden");
+    expect(err.message).toContain("utilizador DEV não tem autorização");
+    expect(err.message).toContain("S_ADT_RES");
+    expect(err.message).toContain("SU53");
+  });
 });

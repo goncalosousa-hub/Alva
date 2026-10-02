@@ -120,6 +120,19 @@ export class AdtBackend implements AbapBackend {
       await client.login();
     } catch (e) {
       const error = toBackendError(e);
+      // Logged on, but ADT refused the user: a missing authorization, which only the SAP side can grant.
+      if (error instanceof BackendError && error.status === 403) {
+        const user = input.user.trim().toUpperCase();
+        throw new BackendError(
+          `O SAP aceitou o utilizador e a palavra-passe, mas o utilizador ${user} não tem autorização para usar o ADT neste sistema.\n\n` +
+            "Falta normalmente o objeto de autorização S_ADT_RES (recurso /sap/bc/adt/*), que vem no perfil de programador ABAP " +
+            "(ex. role SAP_BC_DWB_ABAPDEVELOPER), o mesmo de que o Eclipse precisa. Logo a seguir a esta tentativa, abre a SU53 no SAP GUI " +
+            "deste sistema para veres a autorização em falta e envia-a à equipa de segurança/Basis.\n\n" +
+            `Resposta do SAP: ${error.message}`,
+          403,
+          "forbidden",
+        );
+      }
       // Wrong password needs no diagnosis; anything else gets what each ADT address answered.
       if (error instanceof BackendError && error.code !== "unauthorized" && error.code !== "certificate") {
         const details = await diagnoseLogon({ url, user: input.user.trim(), password: input.password, client: input.client?.trim(), language: input.language?.trim() }).catch(() => []);
