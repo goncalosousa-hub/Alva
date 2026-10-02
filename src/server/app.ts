@@ -110,7 +110,6 @@ export function createApp(options: AppOptions = {}) {
         backend = new DemoBackend();
       } else {
         const url = str(body.url, "url").trim();
-        if (!/^https?:\/\/[^\s/]+/i.test(url)) throw new BackendError("URL inválido: usa http(s)://servidor:porta", 400, "badRequest");
         backend = await connect({
           url,
           user: str(body.user, "user"),

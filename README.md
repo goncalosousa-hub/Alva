@@ -74,7 +74,7 @@ No ecrã inicial preenche:
 
 | Campo | O que pôr |
 |---|---|
-| URL do sistema | o endereço HTTP(S) do servidor de aplicação: `https://<servidor>:443NN` ou `http://<servidor>:80NN`, com `NN` = número de instância (ex.: instância `00` → `https://10.10.98.56:44300`). Podes colar o endereço da página de login do SAP GUI para HTML ou do Fiori — só o servidor e a porta contam. |
+| URL do sistema | basta o servidor (ex.: `10.10.98.24`): o Alva experimenta as portas habituais (44300, 8000, 443, 80, 44301, 8001) e guarda a que responder. Ou o endereço HTTP(S) completo do servidor de aplicação: `https://<servidor>:443NN` ou `http://<servidor>:80NN`, com `NN` = número de instância (ex.: instância `00` → `https://10.10.98.56:44300`). Podes colar o endereço da página de login do SAP GUI para HTML ou do Fiori — só o servidor e a porta contam. |
 | Mandante, idioma | os mesmos do SAP GUI (ex.: `100`, `PT`) |
 | Utilizador, palavra-passe | os teus do SAP |
 

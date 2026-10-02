@@ -29,7 +29,8 @@ export function LoginScreen() {
         allowSelfSigned: form.allowSelfSigned,
       });
       // Remember the system (never the password).
-      const profile: SystemProfile = { ...form, id: form.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, name: form.name.trim() || session.systemId };
+      // Keep the address the server found (e.g. https://10.10.98.24:44300 for "10.10.98.24").
+      const profile: SystemProfile = { ...form, url: session.url, id: form.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, name: form.name.trim() || session.systemId };
       const next = [profile, ...systems.filter((s) => s.id !== profile.id)];
       prefs.saveSystems(next);
       setState({ session });
@@ -102,15 +103,15 @@ export function LoginScreen() {
               URL do sistema
               <input
                 required
-                placeholder="https://10.10.98.56:44300"
+                placeholder="10.10.98.56  ou  https://10.10.98.56:44300"
                 value={form.url}
                 onChange={(e) => set("url", e.target.value)}
                 autoComplete="url"
                 name="url"
               />
               <span className="field-hint">
-                O endereço HTTP(S) do servidor SAP — podes colar o da página de login do SAP GUI para HTML ou do Fiori. Portas habituais: 443<em>NN</em> (HTTPS)
-                ou 80<em>NN</em> (HTTP), com <em>NN</em> = nº de instância.
+                Basta o servidor (ex.: 10.10.98.24): o Alva procura a porta do SAP. Também podes indicar o URL completo ou colar o da página de
+                login do SAP GUI para HTML / Fiori.
               </span>
             </label>
             <label>
@@ -143,7 +144,7 @@ export function LoginScreen() {
               </div>
             )}
             <button className="primary span-2" type="submit" disabled={busy !== null}>
-              {busy === "login" ? "A ligar…" : "Ligar"}
+              {busy === "login" ? "A procurar o sistema e a ligar…" : "Ligar"}
             </button>
           </form>
         </div>

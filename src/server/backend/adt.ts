@@ -29,6 +29,7 @@ import {
   type UnitTestAlert,
   type UnitTestClassResult,
 } from "../../shared/types.js";
+import { resolveSystemUrl } from "./discover.js";
 import { BackendError, type AbapBackend } from "./types.js";
 import { etagOf, languageOf, searchPattern, severityOf, splitSourceUri, stripFragment } from "./util.js";
 
@@ -53,6 +54,13 @@ export function toBackendError(e: unknown): Error {
   }
   if (isHttpError(e)) {
     const status = e.status;
+    if (!status && /certificate|self.signed|unable to verify|ERR_TLS|altname/i.test(`${e.message} ${e.code ?? ""}`)) {
+      return new BackendError(
+        "O certificado HTTPS do servidor não é de confiança (normal em sistemas internos ou ao ligar pelo IP). Marca «Aceitar certificados autoassinados / CA interna» e liga de novo.",
+        502,
+        "certificate",
+      );
+    }
     if (status === 404) return new BackendError("Não encontrado no sistema SAP", 404, "notFound");
     if (status === 403) return new BackendError("Sem autorização no sistema SAP", 403, "forbidden");
     if (status) return new BackendError(`O sistema SAP respondeu ${status}: ${e.message}`, 502, "sap");
@@ -94,8 +102,8 @@ export class AdtBackend implements AbapBackend {
   ) {}
 
   static async connect(input: ConnectionInput): Promise<AdtBackend> {
-    // Only scheme, host and port matter: a pasted SAP GUI for HTML / Fiori address works too.
-    const url = new URL(input.url.trim()).origin;
+    // A full URL is used as is (only scheme, host and port); a bare server is probed on the usual ports.
+    const url = await resolveSystemUrl(input.url);
     const options = url.startsWith("https:") ? createSSLConfig(!!input.allowSelfSigned) : {};
     const client = new ADTClient(url, input.user.trim(), input.password, input.client?.trim() || undefined, input.language?.trim() || undefined, {
       ...options,
