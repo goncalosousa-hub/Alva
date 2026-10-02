@@ -1,5 +1,6 @@
+import { checkForUpdates } from "./components/UpdateButton";
 import * as ide from "./ide";
-import { activeTab, getState, setState, toast, updateSettings } from "./store";
+import { activeTab, getState, setState, updateSettings } from "./store";
 
 export interface Command {
   id: string;
@@ -69,25 +70,6 @@ export function currentTheme(): "dark" | "light" {
   const { theme } = getState().settings;
   if (theme !== "system") return theme;
   return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-async function checkForUpdates() {
-  const bridge = window.alvaDesktop;
-  if (!bridge) return;
-  const version = await bridge.version();
-  toast("info", `A procurar atualizações (versão atual ${version})…`, { logIt: false });
-  let started = false;
-  const stop = bridge.onUpdateStatus((status) => {
-    if (status.state === "checking") started = true;
-    if (!started) return; // the state from before this check
-    if (status.state === "none") toast("success", `O Alva está atualizado (${version})`);
-    else if (status.state === "downloading") toast("info", `Nova versão ${status.version}: a descarregar…`);
-    else if (status.state === "ready") toast("success", `O Alva ${status.version} está pronto: usa o botão Atualizar`);
-    else if (status.state === "error") toast("error", `Não foi possível procurar atualizações: ${status.message}`);
-    else return;
-    stop();
-  });
-  await bridge.checkForUpdates();
 }
 
 function toggleSidebar(view: "explorer" | "inactive") {

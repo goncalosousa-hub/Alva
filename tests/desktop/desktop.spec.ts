@@ -43,6 +43,10 @@ test("shows the update button when a new version was downloaded", async () => {
   });
   try {
     const page = await app.firstWindow();
+    // Offered already on the logon screen (a system may be unreachable until updated)...
+    await expect(page.getByRole("button", { name: "Atualizar para 9.9.9" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/^Alva \d+\.\d+\.\d+$/)).toBeVisible();
+    // ...and in the IDE.
     await page.getByRole("button", { name: /sistema demo/i }).click();
     const button = page.getByRole("button", { name: "Atualizar para 9.9.9" });
     await expect(button).toBeVisible({ timeout: 20_000 });

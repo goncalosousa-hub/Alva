@@ -1,7 +1,7 @@
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DesktopBridge, UpdateStatus } from "../../shared/update";
-import { setState, useStore } from "../store";
+import { setState, toast, useStore } from "../store";
 
 declare global {
   interface Window {
@@ -54,4 +54,24 @@ export function UpdateButton() {
       <Download size={14} /> Atualizar para {status.version}
     </button>
   );
+}
+
+/** Manual check, with the outcome as a toast. */
+export async function checkForUpdates() {
+  const bridge = window.alvaDesktop;
+  if (!bridge) return;
+  const version = await bridge.version();
+  toast("info", `A procurar atualizações (versão atual ${version})…`, { logIt: false });
+  let started = false;
+  const stop = bridge.onUpdateStatus((status) => {
+    if (status.state === "checking") started = true;
+    if (!started) return; // the state from before this check
+    if (status.state === "none") toast("success", `O Alva está atualizado (${version})`);
+    else if (status.state === "downloading") toast("info", `Nova versão ${status.version}: a descarregar…`);
+    else if (status.state === "ready") toast("success", `O Alva ${status.version} está pronto: usa o botão Atualizar`);
+    else if (status.state === "error") toast("error", `Não foi possível procurar atualizações: ${status.message}`);
+    else return;
+    stop();
+  });
+  await bridge.checkForUpdates();
 }

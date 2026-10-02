@@ -4,6 +4,8 @@ import { api } from "../api";
 import { prefs, type SystemProfile } from "../prefs";
 import { setState } from "../store";
 import { AppVersion } from "./AppVersion";
+import { Toasts } from "./Toasts";
+import { checkForUpdates, desktop, UpdateButton } from "./UpdateButton";
 
 const EMPTY: Omit<SystemProfile, "id"> = { name: "", url: "", client: "", user: "", language: "PT", allowSelfSigned: false };
 
@@ -61,12 +63,16 @@ export function LoginScreen() {
 
   return (
     <div className="login">
+      <Toasts />
       <div className="login-card">
         <div className="login-brand">
           <img src="/favicon.svg" alt="" width={40} height={40} />
           <div>
             <h1>Alva</h1>
             <p>Desenvolvimento ABAP rápido e moderno.</p>
+          </div>
+          <div className="login-update">
+            <UpdateButton />
           </div>
         </div>
 
@@ -158,6 +164,11 @@ export function LoginScreen() {
         </div>
         <p className="login-note">
           <AppVersion className="login-version" />
+          {desktop && (
+            <button type="button" className="link-button" onClick={() => void checkForUpdates()}>
+              Procurar atualizações
+            </button>
+          )}
           A palavra-passe só é usada para abrir a sessão ADT neste servidor local e nunca é guardada no browser. O sistema precisa do serviço ADT ativo
           (SICF <code>/sap/bc/adt</code>).
         </p>

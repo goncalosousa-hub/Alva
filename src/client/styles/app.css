@@ -1668,3 +1668,25 @@ button.status-item:hover {
   font-size: 12px;
   white-space: pre-wrap;
 }
+
+.login-update {
+  margin-left: auto;
+}
+
+.login-version {
+  display: inline;
+  margin-right: 10px;
+}
+
+.link-button {
+  color: var(--accent);
+  font-size: inherit;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.login-note .link-button {
+  margin-bottom: 4px;
+}
