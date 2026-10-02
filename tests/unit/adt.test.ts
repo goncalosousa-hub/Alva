@@ -42,4 +42,25 @@ describe("ADT connection errors", () => {
     expect(err.status).toBe(502);
     expect(err.message).toMatch(/inacessível|ECONNREFUSED/i);
   });
+
+  it("explains a logon that fails with 404 with what each ADT address answered", async () => {
+    const sap = createServer((req, res) => {
+      const path = (req.url ?? "").split("?")[0];
+      if (path === "/sap/bc/adt/discovery") {
+        res.writeHead(302, { location: "/sap/public/bc/icf/logon" });
+      } else {
+        res.writeHead(404);
+      }
+      res.end();
+    });
+    await new Promise<void>((resolve) => sap.listen(0, "127.0.0.1", resolve));
+    const port = (sap.address() as AddressInfo).port;
+    const err = await connectError(`http://127.0.0.1:${port}`);
+    sap.close();
+    expect(err.status).toBe(404);
+    expect(err.message).toContain("/sap/bc/adt/compatibility/graph");
+    expect(err.message).toContain("Diagnóstico:");
+    expect(err.message).toContain("/sap/bc/adt/discovery: HTTP 302 → /sap/public/bc/icf/logon");
+    expect(err.message).toContain("/sap/bc/adt/compatibility/graph: HTTP 404");
+  });
 });

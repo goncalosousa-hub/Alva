@@ -1,6 +1,6 @@
 {
   "name": "alva",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Alva: IDE para ABAP, rápido e moderno (via ADT)",
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,green \"tsx watch src/server/index.ts\" \"vite\"",

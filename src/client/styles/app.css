@@ -1690,3 +1690,22 @@ button.status-item:hover {
 .login-note .link-button {
   margin-bottom: 4px;
 }
+
+.form-error {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.login-meta {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 24px 6px;
+  background: var(--bg-elev-2);
+  font-size: 12px;
+}
+
+.login-meta .login-version {
+  margin: 0;
+}

@@ -29,7 +29,7 @@ import {
   type UnitTestAlert,
   type UnitTestClassResult,
 } from "../../shared/types.js";
-import { resolveSystemUrl } from "./discover.js";
+import { diagnoseLogon, resolveSystemUrl } from "./discover.js";
 import { BackendError, type AbapBackend } from "./types.js";
 import { etagOf, languageOf, searchPattern, severityOf, splitSourceUri, stripFragment } from "./util.js";
 
@@ -41,6 +41,13 @@ class Mutex {
     this.tail = result.catch(() => undefined);
     return result;
   }
+}
+
+/** " em /sap/bc/adt/..." for an HTTP error of a request, when known. */
+function requestPath(e: unknown): string {
+  const p = (e as { parent?: { config?: { url?: string }; request?: { path?: string } } }).parent;
+  const path = p?.request?.path ?? p?.config?.url;
+  return path ? ` em ${path.split("?")[0]}` : "";
 }
 
 /** Turns ADT client errors into errors the REST API can report. */
@@ -61,7 +68,7 @@ export function toBackendError(e: unknown): Error {
         "certificate",
       );
     }
-    if (status === 404) return new BackendError("Não encontrado no sistema SAP", 404, "notFound");
+    if (status === 404) return new BackendError(`O SAP respondeu "não encontrado" (HTTP 404)${requestPath(e)}`, 404, "notFound");
     if (status === 403) return new BackendError("Sem autorização no sistema SAP", 403, "forbidden");
     if (status) return new BackendError(`O sistema SAP respondeu ${status}: ${e.message}`, 502, "sap");
     return new BackendError(`Sistema SAP inacessível: ${e.message}`, 502, "network");
@@ -112,7 +119,13 @@ export class AdtBackend implements AbapBackend {
     try {
       await client.login();
     } catch (e) {
-      throw toBackendError(e);
+      const error = toBackendError(e);
+      // Wrong password needs no diagnosis; anything else gets what each ADT address answered.
+      if (error instanceof BackendError && error.code !== "unauthorized" && error.code !== "certificate") {
+        const details = await diagnoseLogon({ url, user: input.user.trim(), password: input.password, client: input.client?.trim(), language: input.language?.trim() }).catch(() => []);
+        if (details.length) throw new BackendError(`${error.message}\n\nDiagnóstico:\n${details.join("\n")}`, error.status, error.code);
+      }
+      throw error;
     }
     const host = new URL(url).hostname;
     const info: SessionInfo = {

@@ -162,13 +162,15 @@ export function LoginScreen() {
             {busy === "demo" ? "A preparar…" : "Experimentar com o sistema demo (sem SAP)"}
           </button>
         </div>
-        <p className="login-note">
+        <div className="login-meta">
           <AppVersion className="login-version" />
           {desktop && (
             <button type="button" className="link-button" onClick={() => void checkForUpdates()}>
               Procurar atualizações
             </button>
           )}
+        </div>
+        <p className="login-note">
           A palavra-passe só é usada para abrir a sessão ADT neste servidor local e nunca é guardada no browser. O sistema precisa do serviço ADT ativo
           (SICF <code>/sap/bc/adt</code>).
         </p>

@@ -91,3 +91,40 @@ export async function resolveSystemUrl(input: string, timeoutMs = 4000): Promise
     "network",
   );
 }
+
+export interface DiagnosisInput {
+  url: string;
+  user: string;
+  password: string;
+  client?: string;
+  language?: string;
+}
+
+/**
+ * When the logon fails for a reason other than the password: asks the main ADT addresses with the
+ * user's credentials and reports what each answered, so the cause can be seen (and sent to support).
+ */
+export async function diagnoseLogon(input: DiagnosisInput, timeoutMs = 6000): Promise<string[]> {
+  const paths = ["/sap/bc/adt/discovery", "/sap/bc/adt/core/discovery", "/sap/bc/adt/compatibility/graph"];
+  const auth = `Basic ${Buffer.from(`${input.user}:${input.password}`).toString("base64")}`;
+  const lines = await Promise.all(
+    paths.map(
+      (path) =>
+        new Promise<string>((resolve) => {
+          const target = new URL(path, input.url);
+          if (input.client) target.searchParams.set("sap-client", input.client);
+          if (input.language) target.searchParams.set("sap-language", input.language);
+          const lib = target.protocol === "https:" ? https : http;
+          const req = lib.request(target, { method: "GET", timeout: timeoutMs, rejectUnauthorized: false, headers: { Authorization: auth } }, (res) => {
+            res.resume();
+            const location = typeof res.headers.location === "string" ? ` → ${res.headers.location}` : "";
+            resolve(`${path}: HTTP ${res.statusCode}${location}`);
+          });
+          req.on("timeout", () => req.destroy(new Error("sem resposta")));
+          req.on("error", (e) => resolve(`${path}: ${e.message}`));
+          req.end();
+        }),
+    ),
+  );
+  return [`Servidor: ${input.url}`, ...lines];
+}
