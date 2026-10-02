@@ -5,6 +5,7 @@ import type { CreatableType } from "../../shared/types";
 import { activate, createObject, openTransaction, relintAll, save } from "../ide";
 import type { ThemeChoice } from "../prefs";
 import { getState, setState, updateSettings, useStore, type Overlay } from "../store";
+import { AppVersion } from "./AppVersion";
 import { CommandPalette } from "./CommandPalette";
 import { Keys } from "./Keys";
 import { QuickOpen } from "./QuickOpen";
@@ -151,6 +152,7 @@ function SettingsDialog() {
         </label>
       </div>
       <div className="modal-actions">
+        <AppVersion className="muted settings-version" />
         <button type="button" className="primary" onClick={close} autoFocus>
           Fechar
         </button>

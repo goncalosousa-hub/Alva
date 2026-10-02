@@ -191,7 +191,7 @@ test("creates a class, runs a console class and the ABAP Unit tests", async ({ p
   // ABAP Unit.
   await openObject(page, "ZCL_FLIGHT_SERVICE");
   page.on("console", (m) => m.type() === "error" && console.log("browser console:", m.text()));
-  page.on("pageerror", (e) => console.log("page error:", e.message));
+  page.on("pageerror", (e) => console.log("page error:", e.stack));
   await page.keyboard.press("Control+Shift+F10");
   const results = page.getByTestId("unit-results");
   try {
@@ -199,12 +199,7 @@ test("creates a class, runs a console class and the ABAP Unit tests", async ({ p
   } catch (e) {
     // Diagnostics for CI, where this has failed with a newer Chromium.
     console.log("toasts:", await page.locator(".toast").allTextContents());
-    console.log("status bar:", await page.locator(".statusbar").textContent());
-    console.log("active element:", await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 200)));
-    await page.keyboard.press("Control+Shift+P");
-    await page.keyboard.type("Correr testes ABAP Unit");
-    await page.keyboard.press("Enter");
-    console.log("via palette:", await results.textContent({ timeout: 10_000 }).catch((err) => `not shown: ${err.message.split("\n")[0]}`));
+    console.log("body:", (await page.locator("body").innerHTML()).slice(0, 300));
     throw e;
   }
   await results.getByRole("button", { name: /FULL_FLIGHTS_ARE_SKIPPED/ }).click();

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { prefs, type SystemProfile } from "../prefs";
 import { setState } from "../store";
+import { AppVersion } from "./AppVersion";
 
 const EMPTY: Omit<SystemProfile, "id"> = { name: "", url: "", client: "", user: "", language: "PT", allowSelfSigned: false };
 
@@ -65,7 +66,7 @@ export function LoginScreen() {
           <img src="/favicon.svg" alt="" width={40} height={40} />
           <div>
             <h1>Alva</h1>
-            <p>Desenvolvimento ABAP rápido, no browser.</p>
+            <p>Desenvolvimento ABAP rápido e moderno.</p>
           </div>
         </div>
 
@@ -156,6 +157,7 @@ export function LoginScreen() {
           </button>
         </div>
         <p className="login-note">
+          <AppVersion className="login-version" />
           A palavra-passe só é usada para abrir a sessão ADT neste servidor local e nunca é guardada no browser. O sistema precisa do serviço ADT ativo
           (SICF <code>/sap/bc/adt</code>).
         </p>
