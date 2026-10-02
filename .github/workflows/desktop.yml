@@ -26,6 +26,8 @@ jobs:
   windows:
     name: Windows installer
     runs-on: windows-latest
+    # One publication at a time.
+    concurrency: release-${{ github.ref }}
     permissions:
       contents: write
     steps:
@@ -36,24 +38,33 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Tag the version (main only)
+      - run: npx electron-builder --win nsis --publish never
+      # On main, a new version in package.json becomes a GitHub release (tag v<version>) with the
+      # installer, its blockmap and latest.yml, which installed apps read to update themselves.
+      # A complete release of the version is left alone; incomplete ones are replaced.
+      - name: Publish the release (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
-        run: |
-          tag="v$(node -p "require('./package.json').version")"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
-            echo "$tag already exists"
-          else
-            git tag "$tag" && git push origin "$tag"
-          fi
-      # On main, a new version in package.json becomes a GitHub release (tag v<version>) with the
-      # installer and latest.yml, which the installed apps read to update themselves. A version
-      # that is already released is left alone.
-      - name: Build (and publish on main)
-        shell: bash
-        run: npx electron-builder --win nsis --publish ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          releases="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          complete="$(jq --arg t "$tag" '[.[] | select(.tag_name == $t and any(.assets[]; .name == "latest.yml"))] | length' <<< "$releases")"
+          if [ "$complete" != "0" ]; then
+            echo "$tag is already released"
+            exit 0
+          fi
+          for id in $(jq --arg t "$tag" '.[] | select(.tag_name == $t) | .id' <<< "$releases"); do
+            echo "Removing incomplete release $id of $tag"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+          done
+          gh release create "$tag" \
+            "release/Alva-Setup-$version.exe" \
+            "release/Alva-Setup-$version.exe.blockmap" \
+            release/latest.yml \
+            --title "$version" --target "$GITHUB_SHA" --generate-notes
       - uses: actions/upload-artifact@v4
         with:
           name: Alva-Windows
