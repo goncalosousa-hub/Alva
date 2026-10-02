@@ -35,7 +35,9 @@ export function CommandPalette() {
     .sort((a, b) => b.score - a.score)
     .map((x) => x.c);
 
-  useEffect(() => setSelected(0), [query]);
+  useEffect(() => {
+    setSelected(0);
+  }, [query]);
   useEffect(() => {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);

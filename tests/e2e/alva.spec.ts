@@ -6,6 +6,15 @@ const activeTab = (page: Page) => openTabs(page).getByRole("tab", { selected: tr
 
 /** Logs on to the in-memory demo system. Each test gets a fresh server-side session. */
 async function startDemo(page: Page) {
+  // Recent Chromium returns a Promise from scrollIntoView; make every browser behave so (this
+  // once crashed the UI only in CI, where the browser is newer).
+  await page.addInitScript(() => {
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<typeof original>) {
+      original.apply(this, args);
+      return Promise.resolve() as unknown as void;
+    };
+  });
   await page.goto("/");
   await page.getByRole("button", { name: /sistema demo/i }).click();
   await expect(page.getByText("Sistema demo")).toBeVisible();
@@ -190,18 +199,9 @@ test("creates a class, runs a console class and the ABAP Unit tests", async ({ p
 
   // ABAP Unit.
   await openObject(page, "ZCL_FLIGHT_SERVICE");
-  page.on("console", (m) => m.type() === "error" && console.log("browser console:", m.text()));
-  page.on("pageerror", (e) => console.log("page error:", e.stack));
   await page.keyboard.press("Control+Shift+F10");
   const results = page.getByTestId("unit-results");
-  try {
-    await expect(results).toContainText("2 de 2 teste(s) passaram");
-  } catch (e) {
-    // Diagnostics for CI, where this has failed with a newer Chromium.
-    console.log("toasts:", await page.locator(".toast").allTextContents());
-    console.log("body:", (await page.locator("body").innerHTML()).slice(0, 300));
-    throw e;
-  }
+  await expect(results).toContainText("2 de 2 teste(s) passaram");
   await results.getByRole("button", { name: /FULL_FLIGHTS_ARE_SKIPPED/ }).click();
   await expect(activeTab(page)).toContainText("testes");
 });

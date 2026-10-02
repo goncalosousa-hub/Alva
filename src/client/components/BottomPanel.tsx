@@ -110,7 +110,10 @@ function Alert({ alert, indent }: { alert: { kind: string; title: string; detail
 function Console() {
   const runs = useStore((s) => s.consoleRuns);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [runs.length]);
+  // Braces matter: scrollIntoView returns a Promise in recent Chromium, which React would take for a cleanup.
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [runs.length]);
   if (!runs.length) return <div className="panel-empty">F8 numa classe com IF_OO_ADT_CLASSRUN mostra aqui a saída.</div>;
   return (
     <div className="console" data-testid="console">
@@ -130,7 +133,9 @@ function Console() {
 function Output() {
   const log = useStore((s) => s.log);
   const end = useRef<HTMLLIElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [log.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [log.length]);
   if (!log.length) return <div className="panel-empty">Sem mensagens.</div>;
   return (
     <ul className="output">
