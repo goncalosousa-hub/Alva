@@ -5,6 +5,7 @@ import { registerLanguageFeatures, resetWorkspace } from "./ide";
 import { monaco } from "./monaco";
 import { setState, toast, useStore } from "./store";
 import { LoginScreen } from "./components/LoginScreen";
+import { announceUpdate, UpdateOverlay } from "./components/UpdateButton";
 import { Workbench } from "./components/Workbench";
 
 function useTheme() {
@@ -30,6 +31,7 @@ export function App() {
 
   useEffect(() => {
     registerLanguageFeatures();
+    announceUpdate();
     setUnauthorizedHandler(() => {
       if (!useStore.getState().session) return;
       resetWorkspace();
@@ -43,5 +45,10 @@ export function App() {
   }, []);
 
   if (checking) return <div className="boot" aria-busy="true" />;
-  return session ? <Workbench /> : <LoginScreen />;
+  return (
+    <>
+      {session ? <Workbench /> : <LoginScreen />}
+      <UpdateOverlay />
+    </>
+  );
 }

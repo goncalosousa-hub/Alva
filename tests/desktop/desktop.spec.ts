@@ -54,7 +54,26 @@ test("shows the update button when a new version was downloaded", async () => {
     const button = page.getByRole("button", { name: "Atualizar para 9.9.9" });
     await expect(button).toBeVisible({ timeout: 20_000 });
     await button.click();
-    await expect(page.getByText("A instalar 9.9.9")).toBeVisible();
+    // Covers the app until it closes for the installer, so it does not just disappear.
+    const dialog = page.getByRole("dialog", { name: "A atualizar o Alva para 9.9.9" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("progressbar")).toBeVisible();
+    await expect(dialog).toContainText("o Alva abre sozinho");
+  } finally {
+    await app.close();
+  }
+});
+
+test("says the app was updated on the first start after an update", async () => {
+  // The installer starts the new version with --updated.
+  const app = await electron.launch({
+    executablePath: executablePath!,
+    args: ["--no-sandbox", "--updated"],
+    env: { ...process.env, ALVA_DISABLE_UPDATES: "1" },
+  });
+  try {
+    const page = await app.firstWindow();
+    await expect(page.locator(".toast")).toContainText(/O Alva foi atualizado para a versão \d+\.\d+\.\d+/, { timeout: 20_000 });
   } finally {
     await app.close();
   }

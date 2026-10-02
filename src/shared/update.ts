@@ -13,6 +13,8 @@ export interface DesktopBridge {
   version(): Promise<string>;
   checkForUpdates(): Promise<void>;
   installUpdate(): Promise<void>;
+  /** True once, on the first start after an update. */
+  justUpdated(): Promise<boolean>;
   onUpdateStatus(listener: (status: UpdateStatus) => void): () => void;
   /** Remembered passwords, encrypted by the operating system. */
   canStorePasswords(): Promise<boolean>;

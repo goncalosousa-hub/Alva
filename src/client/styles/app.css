@@ -1639,6 +1639,94 @@ button.status-item:hover {
   margin-right: 8px;
   font-size: 12px;
   color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.update-progress .progress-bar {
+  width: 70px;
+  height: 5px;
+}
+
+.progress-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 0.3s ease;
+}
+
+.progress-bar.indeterminate .progress-fill {
+  position: absolute;
+  width: 35%;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.update-overlay {
+  z-index: 100;
+  align-items: center;
+  padding-top: 16px;
+  background: #000000a6;
+}
+
+.update-modal h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.update-steps {
+  list-style: none;
+  margin: 16px 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.update-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-steps li.done {
+  color: var(--success);
+}
+
+.update-steps li.active {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.step-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.update-modal .hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 
 .login-version {

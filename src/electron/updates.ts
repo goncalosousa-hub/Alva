@@ -8,6 +8,8 @@ import type { UpdateStatus } from "../shared/update.js";
 
 const { autoUpdater } = updater;
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
+/** How long the page shows "a atualizar" before Alva closes for the installer. */
+const INSTALL_DELAY_MS = 2_500;
 
 let status: UpdateStatus = { state: "idle" };
 let getWindow: () => BrowserWindow | null = () => null;
@@ -63,8 +65,16 @@ export function setUpUpdates(window: () => BrowserWindow | null) {
     if (status.state !== "ready") return;
     publish({ state: "installing", version: status.version });
     if (fakeVersion) return;
-    // Silent install of the downloaded version, then start it again.
-    setImmediate(() => autoUpdater.quitAndInstall(true, true));
+    // The page first shows that the update starts; then Alva closes and, on Windows, the installer
+    // shows its progress (not silent) and opens the new version when it is done (build/installer.nsh).
+    setTimeout(() => autoUpdater.quitAndInstall(process.platform !== "win32", true), INSTALL_DELAY_MS);
+  });
+  // The installer starts the new version with --updated: the page then says it was updated.
+  let updated = process.argv.includes("--updated");
+  ipcMain.handle("alva:just-updated", () => {
+    const answer = updated;
+    updated = false;
+    return answer;
   });
 
   setTimeout(() => void check(), 5_000);

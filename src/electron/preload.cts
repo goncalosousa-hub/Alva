@@ -9,6 +9,7 @@ const bridge: DesktopBridge = {
   version: () => ipcRenderer.invoke("alva:version"),
   checkForUpdates: () => ipcRenderer.invoke("alva:check-updates"),
   installUpdate: () => ipcRenderer.invoke("alva:install-update"),
+  justUpdated: () => ipcRenderer.invoke("alva:just-updated"),
   onUpdateStatus(listener) {
     const handler = (_event: IpcRendererEvent, status: UpdateStatus) => listener(status);
     ipcRenderer.on("alva:update-status", handler);

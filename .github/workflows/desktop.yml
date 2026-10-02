@@ -39,6 +39,27 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx electron-builder --win nsis --publish never
+      # An update from inside Alva runs the new installer with --updated, not silent, so its progress
+      # shows: it must finish without asking anything and open Alva again (build/installer.nsh).
+      - name: Update installs without questions and reopens Alva
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $setup = Resolve-Path "release/Alva-Setup-$version.exe"
+          Start-Process $setup -ArgumentList "/S" -Wait
+          $installer = Start-Process $setup -ArgumentList "--updated", "--force-run" -PassThru
+          if (-not $installer.WaitForExit(180000)) {
+            Stop-Process -Id $installer.Id -Force
+            throw "The update installer is waiting for input"
+          }
+          if ($installer.ExitCode -ne 0) { throw "The update installer failed ($($installer.ExitCode))" }
+          $deadline = (Get-Date).AddSeconds(60)
+          while (-not (Get-Process Alva -ErrorAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw "Alva did not open after the update" }
+            Start-Sleep -Seconds 2
+          }
+          Write-Host "Alva reopened after the update"
+          Stop-Process -Name Alva -Force
       # On main, a new version in package.json becomes a GitHub release (tag v<version>) with the
       # installer, its blockmap and latest.yml, which installed apps read to update themselves.
       # A complete release of the version is left alone; incomplete ones are replaced.
